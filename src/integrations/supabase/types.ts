@@ -65,9 +65,62 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_metrics: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          latency_ms: number | null
+          metadata: Json | null
+          metric_type: string
+          operation: string
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          metric_type: string
+          operation: string
+          success?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          metric_type?: string
+          operation?: string
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      performance_summary: {
+        Row: {
+          avg_latency_ms: number | null
+          failed_calls: number | null
+          first_recorded: string | null
+          last_recorded: string | null
+          max_latency_ms: number | null
+          median_latency_ms: number | null
+          metric_type: string | null
+          operation: string | null
+          p95_latency_ms: number | null
+          success_rate: number | null
+          successful_calls: number | null
+          total_calls: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
