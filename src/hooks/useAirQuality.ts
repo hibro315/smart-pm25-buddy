@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Geolocation } from '@capacitor/geolocation';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useToast } from '@/hooks/use-toast';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
 interface AirQualityData {
   pm25: number;
@@ -23,6 +24,7 @@ export const useAirQuality = () => {
   const [data, setData] = useState<AirQualityData | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { measureOperation } = usePerformanceMonitor();
 
   const requestLocationPermission = async () => {
     try {
@@ -151,26 +153,38 @@ export const useAirQuality = () => {
         return;
       }
 
-      // Get current position with proper mobile settings
-      console.log('Getting current position...');
-      const position = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000, // Increased timeout for mobile (20 seconds)
-        maximumAge: 60000 // Allow cached position up to 60 seconds old
-      });
+      // Get current position with proper mobile settings and track performance
+      const position = await measureOperation(
+        'air_quality',
+        'get_location',
+        async () => {
+          return await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 60000
+          });
+        },
+        { accuracy_mode: 'high' }
+      );
 
-      console.log('Location obtained:', {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        accuracy: position.coords.accuracy
-      });
-
-      const { data: functionData, error } = await supabase.functions.invoke('get-air-quality', {
-        body: {
+      // Fetch air quality data with performance tracking
+      const { data: functionData, error } = await measureOperation(
+        'air_quality',
+        'fetch_air_quality_data',
+        async () => {
+          return await supabase.functions.invoke('get-air-quality', {
+            body: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            }
+          });
+        },
+        { 
           latitude: position.coords.latitude,
-          longitude: position.coords.longitude
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
         }
-      });
+      );
 
       if (error) {
         console.error('Edge function error:', error);

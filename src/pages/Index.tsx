@@ -15,12 +15,13 @@ import { PHRIDisplay } from "@/components/PHRIDisplay";
 import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
+import { PerformanceDashboard } from "@/components/PerformanceDashboard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut } from "lucide-react";
+import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut, TrendingUp } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
 import { useAirQuality } from "@/hooks/useAirQuality";
@@ -289,7 +290,7 @@ const Index = () => {
 
         {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation and PHRI */}
         <Tabs defaultValue="chatbot" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
             <TabsTrigger value="chatbot">
               <MessageSquare className="w-4 h-4 mr-1" />
               Chat
@@ -307,6 +308,10 @@ const Index = () => {
             <TabsTrigger value="navigation">
               <Navigation className="w-4 h-4 mr-1" />
               นำทาง
+            </TabsTrigger>
+            <TabsTrigger value="performance">
+              <TrendingUp className="w-4 h-4 mr-1" />
+              ประสิทธิภาพ
             </TabsTrigger>
           </TabsList>
           <TabsContent value="chatbot" className="mt-4">
@@ -355,6 +360,9 @@ const Index = () => {
                 กำลังโหลดตำแหน่ง...
               </div>
             )}
+          </TabsContent>
+          <TabsContent value="performance" className="mt-4">
+            <PerformanceDashboard />
           </TabsContent>
         </Tabs>
 

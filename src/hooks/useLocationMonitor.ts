@@ -4,6 +4,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/integrations/supabase/client';
 import { UserHealthProfile } from '@/components/HealthProfileForm';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
 interface LocationMonitorConfig {
   userProfile: UserHealthProfile | null;
@@ -21,6 +22,7 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
   const [currentAlert, setCurrentAlert] = useState<PM25Alert | null>(null);
   const watchIdRef = useRef<string | null>(null);
   const lastAlertTimeRef = useRef<number>(0);
+  const { measureOperation, trackMetric } = usePerformanceMonitor();
 
   // Calculate recommended outdoor time based on PM2.5 and health conditions
   const calculateOutdoorTime = (pm25: number, hasHighRiskConditions: boolean): number => {
@@ -98,9 +100,16 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
   // Fetch PM2.5 for current location
   const checkAirQuality = async (lat: number, lng: number) => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-air-quality', {
-        body: { latitude: lat, longitude: lng }
-      });
+      const { data, error } = await measureOperation(
+        'location_monitor',
+        'check_air_quality',
+        async () => {
+          return await supabase.functions.invoke('get-air-quality', {
+            body: { latitude: lat, longitude: lng }
+          });
+        },
+        { latitude: lat, longitude: lng }
+      );
 
       if (error || !data) return;
 
@@ -134,7 +143,16 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
             await triggerVibration();
           }
           
-          await sendNotification(alert);
+          // Send notification with performance tracking
+          await measureOperation(
+            'notification',
+            'send_pm25_alert',
+            async () => {
+              await sendNotification(alert);
+              return true;
+            },
+            { pm25, severity, isHighRisk }
+          );
         }
       } else {
         setCurrentAlert(null);
