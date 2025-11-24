@@ -15,26 +15,26 @@ serve(async (req) => {
 
     console.log('Fetching air quality data for:', { latitude, longitude });
 
-    const IQAIR_API_KEY = Deno.env.get('IQAIR_API_KEY');
+    const OPENWEATHER_API_KEY = Deno.env.get('OPENWEATHER_API_KEY');
 
-    if (!IQAIR_API_KEY) {
-      console.error('Missing IQAIR_API_KEY');
-      throw new Error('IQAIR_API_KEY not configured');
+    if (!OPENWEATHER_API_KEY) {
+      console.error('Missing OPENWEATHER_API_KEY');
+      throw new Error('OPENWEATHER_API_KEY not configured');
     }
 
-    // Fetch air quality data from IQAir API
-    const airQualityUrl = `http://api.airvisual.com/v2/nearest_city?lat=${latitude}&lon=${longitude}&key=${IQAIR_API_KEY}`;
+    // Fetch air quality data from OpenWeatherMap Air Pollution API
+    const airQualityUrl = `http://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&appid=${OPENWEATHER_API_KEY}`;
     
     const airQualityResponse = await fetch(airQualityUrl);
 
     if (!airQualityResponse.ok) {
       const errorText = await airQualityResponse.text();
-      console.error('IQAir API error:', airQualityResponse.status, errorText);
-      throw new Error(`IQAir API error: ${airQualityResponse.status}`);
+      console.error('OpenWeatherMap API error:', airQualityResponse.status, errorText);
+      throw new Error(`OpenWeatherMap API error: ${airQualityResponse.status}`);
     }
 
     const airQualityData = await airQualityResponse.json();
-    console.log('IQAir data received:', airQualityData);
+    console.log('OpenWeatherMap data received:', airQualityData);
 
     // Fetch location name from Nominatim (OpenStreetMap)
     const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=th`;
@@ -62,25 +62,40 @@ serve(async (req) => {
       location = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
     }
 
-    // Extract air quality data from IQAir
-    const pollution = airQualityData.data?.current?.pollution || {};
-    const weather = airQualityData.data?.current?.weather || {};
+    // Extract air quality data from OpenWeatherMap
+    const components = airQualityData.list?.[0]?.components || {};
+    const mainData = airQualityData.list?.[0]?.main || {};
     
-    const pm25 = Math.round(pollution.aqius || 0); // US AQI
-    const pm10 = 0; // IQAir doesn't provide PM10 in free tier
-    const no2 = 0; // IQAir doesn't provide NO2 in free tier
-    const o3 = 0; // IQAir doesn't provide O3 in free tier
-    const so2 = 0; // IQAir doesn't provide SO2 in free tier
-    const co = 0; // IQAir doesn't provide CO in free tier
+    // OpenWeatherMap provides concentrations in μg/m³
+    const pm25 = Math.round(components.pm2_5 || 0);
+    const pm10 = Math.round(components.pm10 || 0);
+    const no2 = Math.round(components.no2 || 0);
+    const o3 = Math.round(components.o3 || 0);
+    const so2 = Math.round(components.so2 || 0);
+    const co = Math.round(components.co || 0);
     
-    // Use IQAir's US AQI directly
-    const aqi = pollution.aqius || 0;
+    // OpenWeatherMap AQI (1-5 scale), convert to US AQI scale (0-500)
+    const owmAqi = mainData.aqi || 1;
+    const aqiConversion = [0, 50, 100, 150, 200, 300]; // Approximate conversion
+    const aqi = aqiConversion[owmAqi] || 50;
     
     const timestamp = new Date().toISOString();
 
-    // Get temperature and humidity from IQAir weather data
-    const temperature = Math.round(weather.tp || 25);
-    const humidity = Math.round(weather.hu || 60);
+    // Fetch weather data for temperature and humidity
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+    let temperature = 25;
+    let humidity = 60;
+    
+    try {
+      const weatherResponse = await fetch(weatherUrl);
+      if (weatherResponse.ok) {
+        const weatherData = await weatherResponse.json();
+        temperature = Math.round(weatherData.main?.temp || 25);
+        humidity = Math.round(weatherData.main?.humidity || 60);
+      }
+    } catch (error) {
+      console.error('Weather fetch error:', error);
+    }
     
     console.log('Processed data:', { 
       pm25, pm10, no2, o3, so2, co, aqi,
@@ -100,7 +115,7 @@ serve(async (req) => {
         timestamp,
         temperature,
         humidity,
-        source: 'IQAir'
+        source: 'OpenWeatherMap'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
