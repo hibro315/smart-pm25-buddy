@@ -18,15 +18,20 @@ export type Database = {
         Row: {
           age: number
           aqi: number
+          co: number | null
           created_at: string
           gender: string | null
           has_symptoms: boolean | null
           id: string
           location: string | null
           log_date: string
+          no2: number | null
+          o3: number | null
           outdoor_time: number
           phri: number
+          pm10: number | null
           pm25: number
+          so2: number | null
           symptoms: string[] | null
           user_id: string
           wearing_mask: boolean | null
@@ -34,15 +39,20 @@ export type Database = {
         Insert: {
           age: number
           aqi: number
+          co?: number | null
           created_at?: string
           gender?: string | null
           has_symptoms?: boolean | null
           id?: string
           location?: string | null
           log_date?: string
+          no2?: number | null
+          o3?: number | null
           outdoor_time: number
           phri: number
+          pm10?: number | null
           pm25: number
+          so2?: number | null
           symptoms?: string[] | null
           user_id: string
           wearing_mask?: boolean | null
@@ -50,15 +60,20 @@ export type Database = {
         Update: {
           age?: number
           aqi?: number
+          co?: number | null
           created_at?: string
           gender?: string | null
           has_symptoms?: boolean | null
           id?: string
           location?: string | null
           log_date?: string
+          no2?: number | null
+          o3?: number | null
           outdoor_time?: number
           phri?: number
+          pm10?: number | null
           pm25?: number
+          so2?: number | null
           symptoms?: string[] | null
           user_id?: string
           wearing_mask?: boolean | null

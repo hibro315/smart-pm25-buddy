@@ -6,6 +6,11 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 interface PHRIData {
   aqi: number;
   pm25: number;
+  pm10?: number;
+  co?: number;
+  no2?: number;
+  o3?: number;
+  so2?: number;
   outdoorTime: number;
   age: number;
   gender: string;
@@ -67,6 +72,11 @@ export const usePHRI = () => {
         user_id: user.id,
         aqi: data.aqi,
         pm25: data.pm25,
+        pm10: data.pm10 || null,
+        co: data.co || null,
+        no2: data.no2 || null,
+        o3: data.o3 || null,
+        so2: data.so2 || null,
         outdoor_time: data.outdoorTime,
         age: data.age,
         gender: data.gender,

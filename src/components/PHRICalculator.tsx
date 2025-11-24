@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePHRI } from '@/hooks/usePHRI';
+import { useIndexedDB } from '@/hooks/useIndexedDB';
 import { toast } from '@/hooks/use-toast';
 import { Clock, User, Activity } from 'lucide-react';
 
@@ -36,6 +37,7 @@ export const PHRICalculator = ({
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [wearingMask, setWearingMask] = useState(false);
   const { saveHealthLog, loading } = usePHRI();
+  const { saveLog: saveToIndexedDB, isReady: isIndexedDBReady } = useIndexedDB();
 
   const handleSymptomToggle = (symptomId: string) => {
     setSelectedSymptoms(prev =>
@@ -80,6 +82,22 @@ export const PHRICalculator = ({
     }
 
     try {
+      // Save to IndexedDB first for offline support
+      if (isIndexedDBReady) {
+        await saveToIndexedDB({
+          aqi: currentAQI,
+          pm25: currentPM25,
+          outdoorTime: outdoorTimeNum,
+          age: ageNum,
+          gender: gender || 'ไม่ระบุ',
+          hasSymptoms: selectedSymptoms.length > 0,
+          symptoms: selectedSymptoms,
+          location: currentLocation,
+          wearingMask,
+        });
+      }
+
+      // Then try to save to server
       const result = await saveHealthLog({
         aqi: currentAQI,
         pm25: currentPM25,
@@ -104,6 +122,10 @@ export const PHRICalculator = ({
       setWearingMask(false);
     } catch (error) {
       console.error('Error submitting PHRI data:', error);
+      toast({
+        title: 'บันทึกออฟไลน์',
+        description: 'ข้อมูลถูกบันทึกในเครื่อง จะซิงค์เมื่อกลับมาออนไลน์',
+      });
     }
   };
 
