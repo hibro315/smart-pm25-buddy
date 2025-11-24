@@ -27,6 +27,7 @@ import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
 import { useAirQuality } from "@/hooks/useAirQuality";
 import { useLocationMonitor } from "@/hooks/useLocationMonitor";
+import { useBackgroundSync } from "@/hooks/useBackgroundSync";
 import { Geolocation } from '@capacitor/geolocation';
 
 const Index = () => {
@@ -34,6 +35,7 @@ const Index = () => {
   const [authUser, setAuthUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const { data, loading, refresh } = useAirQuality();
+  const { unsyncedCount } = useBackgroundSync();
   const [userProfile, setUserProfile] = useState<UserHealthProfile | null>(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -178,6 +180,12 @@ const Index = () => {
             <p className="text-white/90 drop-shadow-md">
               ระบบเฝ้าระวังคุณภาพอากาศเพื่อสุขภาพที่ดี
             </p>
+            {unsyncedCount > 0 && (
+              <div className="inline-flex items-center gap-2 bg-warning/90 text-warning-foreground px-4 py-2 rounded-full text-sm font-medium mt-2 shadow-lg">
+                <span className="animate-pulse">📡</span>
+                <span>{unsyncedCount} ข้อมูลรอซิงค์</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
