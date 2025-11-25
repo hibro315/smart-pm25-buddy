@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => ({
     react(), 
     mode === "development" && componentTagger(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon-192.png', 'icon-512.png'],
       manifest: {
@@ -41,39 +44,13 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB (increased for TensorFlow.js)
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.openweathermap\.org\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'openweathermap-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 30 // 30 minutes
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              }
-            }
-          }
-        ]
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
       },
       devOptions: {
-        enabled: true
+        enabled: true,
+        type: 'module'
       }
     })
   ].filter(Boolean),

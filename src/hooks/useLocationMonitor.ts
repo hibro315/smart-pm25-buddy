@@ -5,6 +5,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/integrations/supabase/client';
 import { UserHealthProfile } from '@/components/HealthProfileForm';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import { 
+  saveLocationForBackgroundSync, 
+  saveHealthProfileForBackgroundSync,
+  registerPeriodicBackgroundSync
+} from '@/utils/backgroundSync';
 
 interface LocationMonitorConfig {
   userProfile: UserHealthProfile | null;
@@ -217,13 +222,32 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
               return;
             }
             if (position) {
-              checkAirQuality(position.coords.latitude, position.coords.longitude);
+              const { latitude, longitude } = position.coords;
+              
+              // Save location for background sync
+              saveLocationForBackgroundSync(latitude, longitude).catch(console.error);
+              
+              // Check air quality
+              checkAirQuality(latitude, longitude);
             }
           }
         );
 
         watchIdRef.current = id;
         console.log('✅ Location monitoring started with background support');
+        
+        // Save health profile for background sync
+        if (userProfile?.conditions) {
+          saveHealthProfileForBackgroundSync(
+            userProfile.conditions,
+            userProfile.age ? Number(userProfile.age) : undefined
+          ).catch(console.error);
+        }
+        
+        // Register periodic background sync (for PWA)
+        registerPeriodicBackgroundSync().catch((error) => {
+          console.log('Background sync not available or failed:', error);
+        });
       } catch (error) {
         console.error('Error starting location monitoring:', error);
       }
