@@ -16,20 +16,18 @@ import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { PerformanceDashboard } from "@/components/PerformanceDashboard";
+import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut, TrendingUp, Heart } from "lucide-react";
+import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut, TrendingUp } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
 import { useAirQuality } from "@/hooks/useAirQuality";
 import { useLocationMonitor } from "@/hooks/useLocationMonitor";
 import { useBackgroundSync } from "@/hooks/useBackgroundSync";
-import { VitalSignsInput } from "@/components/VitalSignsInput";
-import { VitalSignsDisplay } from "@/components/VitalSignsDisplay";
-import { VitalSignsHistory } from "@/components/VitalSignsHistory";
 import { Geolocation } from '@capacitor/geolocation';
 
 const Index = () => {
@@ -43,7 +41,6 @@ const Index = () => {
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
   const [currentPHRI, setCurrentPHRI] = useState<number | undefined>(undefined);
-  const [vitalSignsResult, setVitalSignsResult] = useState<any>(null);
   
   const { currentAlert, isMonitoring, clearAlert } = useLocationMonitor({
     userProfile,
@@ -285,6 +282,14 @@ const Index = () => {
         {/* PHRI Comparison */}
         <PHRIComparison />
 
+        {/* Mask Detection with AI */}
+        <MaskDetection 
+          pm25={pm25Value}
+          onMaskStatusDetected={(wearingMask) => {
+            console.log('Mask detection result:', wearingMask);
+          }}
+        />
+
         {/* User Profile Display or Form */}
         {userProfile && !showProfileForm ? (
           <HealthProfileDisplay 
@@ -300,9 +305,9 @@ const Index = () => {
           </div>
         ) : null}
 
-        {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation, PHRI and Vital Signs */}
+        {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation and PHRI */}
         <Tabs defaultValue="chatbot" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
             <TabsTrigger value="chatbot">
               <MessageSquare className="w-4 h-4 mr-1" />
               Chat
@@ -310,10 +315,6 @@ const Index = () => {
             <TabsTrigger value="phri">
               <Activity className="w-4 h-4 mr-1" />
               PHRI
-            </TabsTrigger>
-            <TabsTrigger value="vital-signs">
-              <Heart className="w-4 h-4 mr-1" />
-              Vital Signs
             </TabsTrigger>
             <TabsTrigger value="ai-advice">AI</TabsTrigger>
             <TabsTrigger value="recommendations">คำแนะนำ</TabsTrigger>
@@ -345,11 +346,6 @@ const Index = () => {
               onCalculated={(phri) => setCurrentPHRI(phri)}
             />
             <HealthLogsHistory />
-          </TabsContent>
-          <TabsContent value="vital-signs" className="mt-4 space-y-4">
-            <VitalSignsInput onCalculated={(result) => setVitalSignsResult(result)} />
-            <VitalSignsDisplay result={vitalSignsResult} />
-            <VitalSignsHistory />
           </TabsContent>
           <TabsContent value="ai-advice" className="mt-4">
             <AIHealthAdvice

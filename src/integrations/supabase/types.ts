@@ -116,66 +116,6 @@ export type Database = {
         }
         Relationships: []
       }
-      vital_signs: {
-        Row: {
-          anomalies: string[] | null
-          bp_diastolic: number
-          bp_systolic: number
-          created_at: string
-          heart_rate: number
-          id: string
-          log_date: string
-          mean_arterial_pressure: number | null
-          pulse_pressure: number | null
-          respiration_rate: number
-          risk_level: string | null
-          risk_score: number | null
-          shock_index: number | null
-          spo2: number
-          temperature: number
-          trends: Json | null
-          user_id: string
-        }
-        Insert: {
-          anomalies?: string[] | null
-          bp_diastolic: number
-          bp_systolic: number
-          created_at?: string
-          heart_rate: number
-          id?: string
-          log_date?: string
-          mean_arterial_pressure?: number | null
-          pulse_pressure?: number | null
-          respiration_rate: number
-          risk_level?: string | null
-          risk_score?: number | null
-          shock_index?: number | null
-          spo2: number
-          temperature: number
-          trends?: Json | null
-          user_id: string
-        }
-        Update: {
-          anomalies?: string[] | null
-          bp_diastolic?: number
-          bp_systolic?: number
-          created_at?: string
-          heart_rate?: number
-          id?: string
-          log_date?: string
-          mean_arterial_pressure?: number | null
-          pulse_pressure?: number | null
-          respiration_rate?: number
-          risk_level?: string | null
-          risk_score?: number | null
-          shock_index?: number | null
-          spo2?: number
-          temperature?: number
-          trends?: Json | null
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       performance_summary: {
