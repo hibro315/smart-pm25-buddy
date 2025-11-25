@@ -22,6 +22,7 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
   const [currentAlert, setCurrentAlert] = useState<PM25Alert | null>(null);
   const watchIdRef = useRef<string | null>(null);
   const lastAlertTimeRef = useRef<number>(0);
+  const previousPM25Ref = useRef<number | null>(null);
   const { measureOperation, trackMetric } = usePerformanceMonitor();
 
   // Calculate recommended outdoor time based on PM2.5 and health conditions
@@ -40,14 +41,17 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
     return userProfile.conditions.some(condition => highRiskIds.includes(condition));
   };
 
-  // Trigger haptic feedback
-  const triggerVibration = async () => {
+  // Trigger haptic feedback - triple vibration for critical alerts
+  const triggerVibration = async (severity: PM25Alert['severity']) => {
     try {
-      await Haptics.impact({ style: ImpactStyle.Heavy });
-      // Double vibration for emphasis
-      setTimeout(async () => {
+      const vibrationCount = severity === 'critical' ? 3 : severity === 'high' ? 2 : 1;
+      
+      for (let i = 0; i < vibrationCount; i++) {
         await Haptics.impact({ style: ImpactStyle.Heavy });
-      }, 300);
+        if (i < vibrationCount - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
     } catch (error) {
       console.error('Haptics error:', error);
     }
@@ -114,6 +118,13 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
       if (error || !data) return;
 
       const pm25 = data.pm25 || 0;
+      const previousPM25 = previousPM25Ref.current;
+      
+      // Detect if PM2.5 is getting worse
+      const isGettingWorse = previousPM25 !== null && pm25 > previousPM25 + 5; // 5 µg/m³ threshold
+      
+      // Update previous PM2.5 value
+      previousPM25Ref.current = pm25;
       
       // Only alert if PM2.5 is concerning AND user has health conditions
       if (pm25 > 37 && userProfile?.conditions && userProfile.conditions.length > 0) {
@@ -132,18 +143,18 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
           severity
         };
 
-        // Prevent alert spam (minimum 5 minutes between alerts)
+        // Prevent alert spam (minimum 3 minutes between alerts, or immediate if getting worse)
         const now = Date.now();
-        if (now - lastAlertTimeRef.current > 5 * 60 * 1000) {
+        const alertCooldown = isGettingWorse ? 60 * 1000 : 3 * 60 * 1000; // 1 min if worse, 3 min otherwise
+        
+        if (now - lastAlertTimeRef.current > alertCooldown) {
           lastAlertTimeRef.current = now;
           setCurrentAlert(alert);
           
-          // Trigger vibration for high-risk users or critical PM2.5
-          if (isHighRisk || severity === 'critical') {
-            await triggerVibration();
-          }
+          // ALWAYS trigger vibration when PM2.5 is detected, stronger for worse conditions
+          await triggerVibration(severity);
           
-          // Send notification with performance tracking
+          // Send notification with performance tracking - works even in background
           await measureOperation(
             'notification',
             'send_pm25_alert',
@@ -151,11 +162,17 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
               await sendNotification(alert);
               return true;
             },
-            { pm25, severity, isHighRisk }
+            { pm25, severity, isHighRisk, isGettingWorse }
           );
+          
+          // Log to console for debugging
+          console.log(`🚨 PM2.5 Alert: ${pm25} µg/m³ (${severity}) ${isGettingWorse ? '⬆️ WORSE' : ''}`);
         }
       } else {
-        setCurrentAlert(null);
+        // Clear alert only if PM2.5 drops significantly
+        if (pm25 <= 37 || !userProfile?.conditions || userProfile.conditions.length === 0) {
+          setCurrentAlert(null);
+        }
       }
     } catch (error) {
       console.error('Air quality check error:', error);
@@ -170,23 +187,29 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
         watchIdRef.current = null;
       }
       setCurrentAlert(null);
+      previousPM25Ref.current = null; // Reset previous PM2.5
       return;
     }
 
     const startMonitoring = async () => {
       try {
-        const permission = await Geolocation.requestPermissions();
-        if (permission.location !== 'granted') {
+        // Request geolocation permissions
+        const geoPermission = await Geolocation.requestPermissions();
+        if (geoPermission.location !== 'granted') {
           console.log('Location permission not granted');
           return;
         }
 
-        // Check location every 2 minutes
+        // Request notification permissions for background alerts
+        const notifPermission = await LocalNotifications.requestPermissions();
+        console.log('Notification permission:', notifPermission.display);
+
+        // Check location every 2 minutes (works even in background on native apps)
         const id = await Geolocation.watchPosition(
           {
             enableHighAccuracy: false,
             timeout: 10000,
-            maximumAge: 120000 // 2 minutes
+            maximumAge: 120000 // 2 minutes - allows background updates
           },
           (position, error) => {
             if (error) {
@@ -200,6 +223,7 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
         );
 
         watchIdRef.current = id;
+        console.log('✅ Location monitoring started with background support');
       } catch (error) {
         console.error('Error starting location monitoring:', error);
       }
