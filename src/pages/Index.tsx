@@ -16,7 +16,6 @@ import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { PerformanceDashboard } from "@/components/PerformanceDashboard";
-import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -285,14 +284,6 @@ const Index = () => {
 
         {/* PHRI Comparison */}
         <PHRIComparison />
-
-        {/* Mask Detection with AI */}
-        <MaskDetection 
-          pm25={pm25Value}
-          onMaskStatusDetected={(wearingMask) => {
-            console.log('Mask detection result:', wearingMask);
-          }}
-        />
 
         {/* User Profile Display or Form */}
         {userProfile && !showProfileForm ? (
