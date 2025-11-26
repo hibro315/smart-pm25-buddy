@@ -7,7 +7,7 @@ import { HealthRecommendations } from "@/components/HealthRecommendations";
 import { AlertNotification } from "@/components/AlertNotification";
 import { NearbyHospitals } from "@/components/NearbyHospitals";
 import { AIHealthAdvice } from "@/components/AIHealthAdvice";
-import { HealthChatbot } from "@/components/HealthChatbot";
+import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
 import { RouteMap } from "@/components/RouteMap";
 import { LocationMonitorAlert } from "@/components/LocationMonitorAlert";
 import { PHRIDisplay } from "@/components/PHRIDisplay";
@@ -15,14 +15,14 @@ import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
-import { PerformanceDashboard } from "@/components/PerformanceDashboard";
+
 import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut, TrendingUp } from "lucide-react";
+import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
@@ -320,7 +320,7 @@ const Index = () => {
 
         {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation and PHRI */}
         <Tabs defaultValue="chatbot" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
             <TabsTrigger value="chatbot">
               <MessageSquare className="w-4 h-4 mr-1" />
               Chat
@@ -339,16 +339,14 @@ const Index = () => {
               <Navigation className="w-4 h-4 mr-1" />
               นำทาง
             </TabsTrigger>
-            <TabsTrigger value="performance">
-              <TrendingUp className="w-4 h-4 mr-1" />
-              ประสิทธิภาพ
-            </TabsTrigger>
           </TabsList>
           <TabsContent value="chatbot" className="mt-4">
-            <HealthChatbot 
+            <HealthChatbotEnhanced 
               pm25={pm25Value}
+              aqi={data?.aqi}
               temperature={data?.temperature || 0}
               humidity={data?.humidity || 0}
+              location={location}
             />
           </TabsContent>
           <TabsContent value="phri" className="mt-4 space-y-4">
@@ -391,9 +389,6 @@ const Index = () => {
                 กำลังโหลดตำแหน่ง...
               </div>
             )}
-          </TabsContent>
-          <TabsContent value="performance" className="mt-4">
-            <PerformanceDashboard />
           </TabsContent>
         </Tabs>
 

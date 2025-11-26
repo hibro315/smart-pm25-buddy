@@ -15,22 +15,86 @@ serve(async (req) => {
 
     console.log('Fetching air quality data for:', { latitude, longitude });
 
+    // Validate coordinates
+    if (!latitude || !longitude || 
+        latitude < -90 || latitude > 90 || 
+        longitude < -180 || longitude > 180) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid coordinates',
+          pm25: 35,
+          aqi: 75,
+          location: 'ตำแหน่งไม่ถูกต้อง',
+          timestamp: new Date().toISOString(),
+          temperature: 28,
+          humidity: 65,
+          source: 'Fallback'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     const OPENWEATHER_API_KEY = Deno.env.get('OPENWEATHER_API_KEY');
 
     if (!OPENWEATHER_API_KEY) {
       console.error('Missing OPENWEATHER_API_KEY');
-      throw new Error('OPENWEATHER_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'API key not configured',
+          pm25: 35,
+          aqi: 75,
+          location: 'Bangkok',
+          timestamp: new Date().toISOString(),
+          temperature: 28,
+          humidity: 65,
+          source: 'Fallback'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Fetch air quality data from OpenWeatherMap Air Pollution API
     const airQualityUrl = `http://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&appid=${OPENWEATHER_API_KEY}`;
     
-    const airQualityResponse = await fetch(airQualityUrl);
+    const airQualityResponse = await fetch(airQualityUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
 
     if (!airQualityResponse.ok) {
       const errorText = await airQualityResponse.text();
       console.error('OpenWeatherMap API error:', airQualityResponse.status, errorText);
-      throw new Error(`OpenWeatherMap API error: ${airQualityResponse.status}`);
+      
+      // Return fallback data instead of throwing error
+      return new Response(
+        JSON.stringify({
+          pm25: 35,
+          pm10: 50,
+          no2: 30,
+          o3: 40,
+          so2: 10,
+          co: 500,
+          aqi: 75,
+          location: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+          timestamp: new Date().toISOString(),
+          temperature: 28,
+          humidity: 65,
+          source: 'Fallback',
+          error: 'API temporarily unavailable',
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const airQualityData = await airQualityResponse.json();
@@ -121,10 +185,26 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in get-air-quality function:', error);
+    
+    // Always return data, even if it's fallback
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        pm25: 35,
+        pm10: 50,
+        no2: 30,
+        o3: 40,
+        so2: 10,
+        co: 500,
+        aqi: 75,
+        location: 'Bangkok, Thailand',
+        timestamp: new Date().toISOString(),
+        temperature: 28,
+        humidity: 65,
+        source: 'Fallback',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
       { 
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
