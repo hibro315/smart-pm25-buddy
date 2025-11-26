@@ -37,10 +37,10 @@ serve(async (req) => {
       );
     }
 
-    const AQICN_TOKEN = 'a285ebd0-2c4e-4b9f-a403-5a5cb1bbe546';
+    const IQAIR_API_KEY = 'c3da4002-7922-40ec-8fa0-fd79d7b4e607';
 
-    // Fetch air quality data from AQICN (World Air Quality Index) API
-    const airQualityUrl = `https://api.waqi.info/feed/geo:${latitude};${longitude}/?token=${AQICN_TOKEN}`;
+    // Fetch air quality data from IQAir API
+    const airQualityUrl = `http://api.airvisual.com/v2/nearest_city?lat=${latitude}&lon=${longitude}&key=${IQAIR_API_KEY}`;
     
     const airQualityResponse = await fetch(airQualityUrl, {
       headers: {
@@ -51,7 +51,7 @@ serve(async (req) => {
 
     if (!airQualityResponse.ok) {
       const errorText = await airQualityResponse.text();
-      console.error('AQICN API error:', airQualityResponse.status, errorText);
+      console.error('IQAir API error:', airQualityResponse.status, errorText);
       
       // Return fallback data instead of throwing error
       return new Response(
@@ -78,11 +78,11 @@ serve(async (req) => {
     }
 
     const airQualityData = await airQualityResponse.json();
-    console.log('AQICN data received:', airQualityData);
+    console.log('IQAir data received:', airQualityData);
 
-    // Check if AQICN API returned valid data
-    if (airQualityData.status !== 'ok' || !airQualityData.data) {
-      console.error('AQICN API returned invalid data:', airQualityData);
+    // Check if IQAir API returned valid data
+    if (airQualityData.status !== 'success' || !airQualityData.data) {
+      console.error('IQAir API returned invalid data:', airQualityData);
       
       // Return fallback data
       return new Response(
@@ -110,25 +110,28 @@ serve(async (req) => {
 
     const data = airQualityData.data;
     
-    // Extract location name from AQICN data
-    let location = data.city?.name || 'Unknown Location';
+    // Extract location name from IQAir data
+    const location = `${data.city}, ${data.state}, ${data.country}`;
     
-    // Extract air quality data from AQICN
-    const aqi = Math.round(data.aqi || 0);
-    const iaqi = data.iaqi || {};
+    // Extract air quality data from IQAir
+    const current = data.current;
+    const pollution = current.pollution;
+    const weather = current.weather;
     
-    // AQICN provides individual pollutant AQI values, not concentrations
-    // We'll use the values directly as they represent concentration levels
-    const pm25 = Math.round(iaqi.pm25?.v || 0);
-    const pm10 = Math.round(iaqi.pm10?.v || 0);
-    const no2 = Math.round(iaqi.no2?.v || 0);
-    const o3 = Math.round(iaqi.o3?.v || 0);
-    const so2 = Math.round(iaqi.so2?.v || 0);
-    const co = Math.round(iaqi.co?.v || 0);
+    // IQAir provides AQI (US EPA standard) and pollutant concentrations
+    const aqi = Math.round(pollution.aqius || 0);
+    const pm25 = Math.round(pollution.p2?.conc || 0);
+    const pm10 = Math.round(pollution.p1?.conc || 0);
     
-    // Extract temperature and humidity from AQICN data
-    const temperature = Math.round(iaqi.t?.v || 28);
-    const humidity = Math.round(iaqi.h?.v || 65);
+    // IQAir doesn't provide other pollutants in basic plan, use defaults
+    const no2 = 0;
+    const o3 = 0;
+    const so2 = 0;
+    const co = 0;
+    
+    // Extract temperature and humidity from IQAir weather data
+    const temperature = Math.round(weather.tp || 28);
+    const humidity = Math.round(weather.hu || 65);
     
     const timestamp = new Date().toISOString();
     
@@ -150,7 +153,7 @@ serve(async (req) => {
         timestamp,
         temperature,
         humidity,
-        source: 'AQICN'
+        source: 'IQAir'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
