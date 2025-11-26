@@ -15,11 +15,11 @@ const sw = self;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-// Runtime caching for OpenWeatherMap API
+// Runtime caching for AQICN API
 registerRoute(
-  ({ url }) => url.origin === 'https://api.openweathermap.org',
+  ({ url }) => url.origin === 'https://api.waqi.info',
   new NetworkFirst({
-    cacheName: 'openweathermap-cache',
+    cacheName: 'aqicn-cache',
     plugins: [
       new ExpirationPlugin({
         maxEntries: 10,
@@ -120,6 +120,73 @@ const getHealthProfile = async () => {
   }
 };
 
+// Helper: Save location to IndexedDB
+const saveLocation = async (latitude, longitude, location) => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    
+    await store.put({
+      id: 'last-location',
+      latitude,
+      longitude,
+      location,
+      timestamp: Date.now()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving location:', error);
+    return false;
+  }
+};
+
+// Helper: Calculate distance between two coordinates (Haversine formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+};
+
+// Helper: Get current location using Geolocation API
+const getCurrentLocation = async () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation not supported'));
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        reject(error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000
+      }
+    );
+  });
+};
+
 // Helper: Save air quality data to IndexedDB
 const saveAirQualityData = async (data) => {
   try {
@@ -169,37 +236,67 @@ const fetchAirQuality = async (latitude, longitude) => {
 };
 
 // Check if notification should be triggered
-const shouldNotify = (pm25, userProfile) => {
-  if (!userProfile?.conditions || userProfile.conditions.length === 0) {
-    return false;
+const shouldNotify = (pm25, userProfile, previousPm25, hasLocationChanged) => {
+  // Always notify on location change if PM2.5 is unhealthy
+  if (hasLocationChanged && pm25 > 37) {
+    return { notify: true, reason: 'location_change' };
   }
   
-  // Notify if PM2.5 is unhealthy for sensitive groups (>50) or worse
-  return pm25 > 50;
+  // Notify if PM2.5 is high for users with health conditions
+  if (userProfile?.conditions && userProfile.conditions.length > 0 && pm25 > 50) {
+    return { notify: true, reason: 'high_pm25_with_conditions' };
+  }
+  
+  // Notify if PM2.5 significantly increased (>15 points)
+  if (previousPm25 && pm25 > previousPm25 + 15 && pm25 > 37) {
+    return { notify: true, reason: 'pm25_spike' };
+  }
+  
+  // Notify if PM2.5 is very high (>90) regardless of conditions
+  if (pm25 > 90) {
+    return { notify: true, reason: 'critical_pm25' };
+  }
+  
+  return { notify: false, reason: null };
 };
 
 // Show notification with vibration
-const showAirQualityNotification = async (pm25, location, severity) => {
+const showAirQualityNotification = async (pm25, location, severity, reason) => {
   try {
-    const title = severity === 'critical' 
-      ? '🚨 เตือนภัย! PM2.5 อันตราย'
-      : '⚠️ แจ้งเตือน: ค่าฝุ่นสูง';
+    let title = '⚠️ แจ้งเตือน: ค่าฝุ่นสูง';
+    let body = `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location}`;
+    let vibrate = [300, 100, 300];
+    let requireInteraction = false;
     
-    const body = severity === 'critical'
-      ? `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location} - ควรอยู่ในอาคาร!`
-      : `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location} - แนะนำสวมหน้ากาก`;
+    if (severity === 'critical') {
+      title = '🚨 เตือนภัย! PM2.5 อันตราย';
+      body = `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location} - ควรอยู่ในอาคารทันที!`;
+      vibrate = [300, 100, 300, 100, 300];
+      requireInteraction = true;
+    } else if (reason === 'location_change') {
+      title = '📍 เปลี่ยนพื้นที่: ค่าฝุ่นสูง';
+      body = `คุณเข้าสู่พื้นที่ใหม่ ค่าฝุ่น ${pm25} µg/m³ ที่ ${location}`;
+    } else if (reason === 'pm25_spike') {
+      title = '⚠️ ค่าฝุ่นพุ่งสูง!';
+      body = `ค่าฝุ่นเพิ่มสูงขึ้นอย่างรวดเร็ว! ตอนนี้ ${pm25} µg/m³ ที่ ${location}`;
+      vibrate = [300, 100, 300, 100, 300];
+    }
     
     await sw.registration.showNotification(title, {
       body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: NOTIFICATION_TAG,
-      vibrate: severity === 'critical' ? [300, 100, 300, 100, 300] : [300, 100, 300],
-      requireInteraction: severity === 'critical',
-      data: { pm25, location, severity, timestamp: Date.now() }
+      vibrate,
+      requireInteraction,
+      data: { pm25, location, severity, reason, timestamp: Date.now() },
+      actions: [
+        { action: 'view', title: 'ดูรายละเอียด' },
+        { action: 'dismiss', title: 'ปิด' }
+      ]
     });
     
-    console.log('✅ Notification shown successfully');
+    console.log('✅ Notification shown:', { pm25, location, severity, reason });
   } catch (error) {
     console.error('Error showing notification:', error);
   }
@@ -210,24 +307,46 @@ const handlePeriodicSync = async () => {
   console.log('🔄 Periodic sync started:', new Date().toISOString());
   
   try {
-    // Get user's last known location
-    const locationData = await getLastLocation();
-    if (!locationData?.latitude || !locationData?.longitude) {
-      console.log('❌ No location data available');
-      return;
+    // Get current location
+    let currentLocation;
+    try {
+      currentLocation = await getCurrentLocation();
+      console.log('✅ Current location:', currentLocation);
+    } catch (locError) {
+      console.log('⚠️ Could not get current location, using last known');
+      const lastLoc = await getLastLocation();
+      if (!lastLoc?.latitude || !lastLoc?.longitude) {
+        console.log('❌ No location data available');
+        return;
+      }
+      currentLocation = {
+        latitude: lastLoc.latitude,
+        longitude: lastLoc.longitude
+      };
     }
     
-    // Get user health profile
-    const healthProfile = await getHealthProfile();
-    if (!healthProfile?.conditions || healthProfile.conditions.length === 0) {
-      console.log('ℹ️ No health conditions configured, skipping sync');
-      return;
+    // Get previous location and air quality data
+    const previousLocationData = await getLastLocation();
+    const previousAirQualityData = await saveAirQualityData({ id: 'last-air-quality' });
+    
+    // Calculate if location changed significantly (>500 meters)
+    let hasLocationChanged = false;
+    let distanceMoved = 0;
+    if (previousLocationData?.latitude && previousLocationData?.longitude) {
+      distanceMoved = calculateDistance(
+        previousLocationData.latitude,
+        previousLocationData.longitude,
+        currentLocation.latitude,
+        currentLocation.longitude
+      );
+      hasLocationChanged = distanceMoved > 500; // 500 meters threshold
+      console.log(`📍 Distance moved: ${Math.round(distanceMoved)}m, Changed: ${hasLocationChanged}`);
     }
     
-    // Fetch air quality data
+    // Fetch air quality data for current location
     const airQualityData = await fetchAirQuality(
-      locationData.latitude,
-      locationData.longitude
+      currentLocation.latitude,
+      currentLocation.longitude
     );
     
     if (!airQualityData || !airQualityData.pm25) {
@@ -237,17 +356,33 @@ const handlePeriodicSync = async () => {
     
     console.log('✅ Air quality data fetched:', airQualityData);
     
-    // Save to IndexedDB
+    // Save location and air quality to IndexedDB
+    await saveLocation(
+      currentLocation.latitude,
+      currentLocation.longitude,
+      airQualityData.location
+    );
+    
     await saveAirQualityData({
       pm25: airQualityData.pm25,
       aqi: airQualityData.aqi,
       location: airQualityData.location || 'Unknown',
-      latitude: locationData.latitude,
-      longitude: locationData.longitude
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude
     });
     
+    // Get user health profile
+    const healthProfile = await getHealthProfile();
+    
     // Check if notification should be triggered
-    if (shouldNotify(airQualityData.pm25, healthProfile)) {
+    const notificationCheck = shouldNotify(
+      airQualityData.pm25,
+      healthProfile,
+      previousAirQualityData?.pm25,
+      hasLocationChanged
+    );
+    
+    if (notificationCheck.notify) {
       let severity = 'moderate';
       if (airQualityData.pm25 > 90) severity = 'critical';
       else if (airQualityData.pm25 > 50) severity = 'high';
@@ -255,7 +390,8 @@ const handlePeriodicSync = async () => {
       await showAirQualityNotification(
         airQualityData.pm25,
         airQualityData.location || 'ตำแหน่งปัจจุบัน',
-        severity
+        severity,
+        notificationCheck.reason
       );
     }
     
@@ -276,9 +412,13 @@ sw.addEventListener('periodicsync', (event) => {
 
 // Handle notification clicks
 sw.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Notification clicked');
+  console.log('🔔 Notification clicked:', event.action);
   
   event.notification.close();
+  
+  if (event.action === 'dismiss') {
+    return;
+  }
   
   // Open the app when notification is clicked
   event.waitUntil(
