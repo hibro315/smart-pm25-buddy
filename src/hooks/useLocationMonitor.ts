@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Geolocation } from '@capacitor/geolocation';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +9,11 @@ import {
   saveHealthProfileForBackgroundSync,
   registerPeriodicBackgroundSync
 } from '@/utils/backgroundSync';
+import { 
+  watchPosition, 
+  clearWatch, 
+  requestPermissions 
+} from '@/utils/geolocation';
 
 interface LocationMonitorConfig {
   userProfile: UserHealthProfile | null;
@@ -25,7 +29,7 @@ interface PM25Alert {
 
 export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConfig) => {
   const [currentAlert, setCurrentAlert] = useState<PM25Alert | null>(null);
-  const watchIdRef = useRef<string | null>(null);
+  const watchIdRef = useRef<string | number | null>(null);
   const lastAlertTimeRef = useRef<number>(0);
   const previousPM25Ref = useRef<number | null>(null);
   const { measureOperation, trackMetric } = usePerformanceMonitor();
@@ -58,51 +62,89 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
         }
       }
     } catch (error) {
-      console.error('Haptics error:', error);
+      // Fallback to Web Vibration API
+      if ('vibrate' in navigator) {
+        const pattern = severity === 'critical' ? [300, 100, 300, 100, 300] 
+                      : severity === 'high' ? [300, 100, 300]
+                      : [300];
+        navigator.vibrate(pattern);
+      }
+      console.log('Haptics not available, using web vibration or none');
     }
   };
 
   // Send local notification
   const sendNotification = async (alert: PM25Alert) => {
     try {
+      // Try Capacitor first
       const permission = await LocalNotifications.requestPermissions();
-      if (permission.display !== 'granted') return;
+      if (permission.display === 'granted') {
+        const isHighRisk = hasHighRiskConditions();
+        let title = '';
+        let body = '';
 
-      const isHighRisk = hasHighRiskConditions();
-      let title = '';
-      let body = '';
+        if (alert.severity === 'critical') {
+          title = '⚠️ เตือนภัย! PM2.5 อันตราย';
+          body = isHighRisk 
+            ? `ค่าฝุ่น ${alert.pm25} µg/m³ - คุณมีโรคประจำตัวกลุ่มเสี่ยง ควรอยู่ในอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที!`
+            : `ค่าฝุ่น ${alert.pm25} µg/m³ - ควรจำกัดเวลาอยู่นอกอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที`;
+        } else if (alert.severity === 'high') {
+          title = '⚠️ แจ้งเตือน: PM2.5 สูง';
+          body = isHighRisk
+            ? `คุณเข้าพื้นที่ PM2.5 ${alert.pm25} µg/m³ - แนะนำให้อยู่นอกอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที`
+            : `PM2.5 ${alert.pm25} µg/m³ - แนะนำจำกัดเวลานอกอาคาร ${alert.recommendedOutdoorTime} นาที`;
+        } else {
+          title = 'แจ้งเตือน: ค่าฝุ่นเพิ่มขึ้น';
+          body = `PM2.5 ${alert.pm25} µg/m³ ที่ ${alert.location}`;
+        }
 
-      if (alert.severity === 'critical') {
-        title = '⚠️ เตือนภัย! PM2.5 อันตราย';
-        body = isHighRisk 
-          ? `ค่าฝุ่น ${alert.pm25} µg/m³ - คุณมีโรคประจำตัวกลุ่มเสี่ยง ควรอยู่ในอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที!`
-          : `ค่าฝุ่น ${alert.pm25} µg/m³ - ควรจำกัดเวลาอยู่นอกอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที`;
-      } else if (alert.severity === 'high') {
-        title = '⚠️ แจ้งเตือน: PM2.5 สูง';
-        body = isHighRisk
-          ? `คุณเข้าพื้นที่ PM2.5 ${alert.pm25} µg/m³ - แนะนำให้อยู่นอกอาคารไม่เกิน ${alert.recommendedOutdoorTime} นาที`
-          : `PM2.5 ${alert.pm25} µg/m³ - แนะนำจำกัดเวลานอกอาคาร ${alert.recommendedOutdoorTime} นาที`;
-      } else {
-        title = 'แจ้งเตือน: ค่าฝุ่นเพิ่มขึ้น';
-        body = `PM2.5 ${alert.pm25} µg/m³ ที่ ${alert.location}`;
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: Date.now(),
+              schedule: { at: new Date(Date.now() + 100) },
+              sound: 'default',
+              attachments: undefined,
+              actionTypeId: '',
+              extra: null
+            }
+          ]
+        });
+        return;
       }
+    } catch (capacitorError) {
+      // Fallback to Web Notifications API
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const isHighRisk = hasHighRiskConditions();
+        let title = '';
+        let body = '';
 
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title,
-            body,
-            id: Date.now(),
-            schedule: { at: new Date(Date.now() + 100) },
-            sound: 'default',
-            attachments: undefined,
-            actionTypeId: '',
-            extra: null
-          }
-        ]
-      });
-    } catch (error) {
-      console.error('Notification error:', error);
+        if (alert.severity === 'critical') {
+          title = '⚠️ เตือนภัย! PM2.5 อันตราย';
+          body = isHighRisk 
+            ? `ค่าฝุ่น ${alert.pm25} µg/m³ - ควรอยู่ในอาคารทันที!`
+            : `ค่าฝุ่น ${alert.pm25} µg/m³ - ควรจำกัดเวลานอกอาคาร`;
+        } else if (alert.severity === 'high') {
+          title = '⚠️ แจ้งเตือน: PM2.5 สูง';
+          body = `PM2.5 ${alert.pm25} µg/m³ ที่ ${alert.location}`;
+        } else {
+          title = 'แจ้งเตือน: ค่าฝุ่นเพิ่มขึ้น';
+          body = `PM2.5 ${alert.pm25} µg/m³`;
+        }
+
+        new Notification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'pm25-alert',
+          requireInteraction: alert.severity === 'critical',
+        });
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        // Request permission
+        Notification.requestPermission();
+      }
     }
   };
 
@@ -187,42 +229,38 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
   // Start monitoring location
   useEffect(() => {
     if (!enabled || !userProfile?.conditions || userProfile.conditions.length === 0) {
-      if (watchIdRef.current) {
-        Geolocation.clearWatch({ id: watchIdRef.current });
+      if (watchIdRef.current !== null) {
+        clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
       setCurrentAlert(null);
-      previousPM25Ref.current = null; // Reset previous PM2.5
+      previousPM25Ref.current = null;
       return;
     }
 
     const startMonitoring = async () => {
       try {
-        // Request geolocation permissions
-        const geoPermission = await Geolocation.requestPermissions();
-        if (geoPermission.location !== 'granted') {
+        // Request permissions
+        const permission = await requestPermissions();
+        if (permission !== 'granted') {
           console.log('Location permission not granted');
           return;
         }
 
-        // Request notification permissions for background alerts
-        const notifPermission = await LocalNotifications.requestPermissions();
-        console.log('Notification permission:', notifPermission.display);
+        // Request notification permissions for alerts
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
 
-        // Check location every 2 minutes (works even in background on native apps)
-        const id = await Geolocation.watchPosition(
-          {
-            enableHighAccuracy: false,
-            timeout: 10000,
-            maximumAge: 120000 // 2 minutes - allows background updates
-          },
+        // Check location every 2 minutes
+        const id = await watchPosition(
           (position, error) => {
             if (error) {
               console.error('Location error:', error);
               return;
             }
             if (position) {
-              const { latitude, longitude } = position.coords;
+              const { latitude, longitude } = position;
               
               // Save location for background sync
               saveLocationForBackgroundSync(latitude, longitude).catch(console.error);
@@ -230,11 +268,16 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
               // Check air quality
               checkAirQuality(latitude, longitude);
             }
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 120000 // 2 minutes
           }
         );
 
         watchIdRef.current = id;
-        console.log('✅ Location monitoring started with background support');
+        console.log('✅ Location monitoring started');
         
         // Save health profile for background sync
         if (userProfile?.conditions) {
@@ -246,7 +289,7 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
         
         // Register periodic background sync (for PWA)
         registerPeriodicBackgroundSync().catch((error) => {
-          console.log('Background sync not available or failed:', error);
+          console.log('Background sync not available:', error);
         });
       } catch (error) {
         console.error('Error starting location monitoring:', error);
@@ -256,8 +299,8 @@ export const useLocationMonitor = ({ userProfile, enabled }: LocationMonitorConf
     startMonitoring();
 
     return () => {
-      if (watchIdRef.current) {
-        Geolocation.clearWatch({ id: watchIdRef.current });
+      if (watchIdRef.current !== null) {
+        clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
     };
