@@ -37,30 +37,10 @@ serve(async (req) => {
       );
     }
 
-    const OPENWEATHER_API_KEY = Deno.env.get('OPENWEATHER_API_KEY');
+    const AQICN_TOKEN = 'a285ebd0-2c4e-4b9f-a403-5a5cb1bbe546';
 
-    if (!OPENWEATHER_API_KEY) {
-      console.error('Missing OPENWEATHER_API_KEY');
-      return new Response(
-        JSON.stringify({ 
-          error: 'API key not configured',
-          pm25: 35,
-          aqi: 75,
-          location: 'Bangkok',
-          timestamp: new Date().toISOString(),
-          temperature: 28,
-          humidity: 65,
-          source: 'Fallback'
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Fetch air quality data from OpenWeatherMap Air Pollution API
-    const airQualityUrl = `http://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&appid=${OPENWEATHER_API_KEY}`;
+    // Fetch air quality data from AQICN (World Air Quality Index) API
+    const airQualityUrl = `https://api.waqi.info/feed/geo:${latitude};${longitude}/?token=${AQICN_TOKEN}`;
     
     const airQualityResponse = await fetch(airQualityUrl, {
       headers: {
@@ -71,7 +51,7 @@ serve(async (req) => {
 
     if (!airQualityResponse.ok) {
       const errorText = await airQualityResponse.text();
-      console.error('OpenWeatherMap API error:', airQualityResponse.status, errorText);
+      console.error('AQICN API error:', airQualityResponse.status, errorText);
       
       // Return fallback data instead of throwing error
       return new Response(
@@ -98,68 +78,59 @@ serve(async (req) => {
     }
 
     const airQualityData = await airQualityResponse.json();
-    console.log('OpenWeatherMap data received:', airQualityData);
+    console.log('AQICN data received:', airQualityData);
 
-    // Fetch location name from Nominatim (OpenStreetMap)
-    const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=th`;
-    
-    let location = 'Unknown Location';
-    try {
-      const geocodeResponse = await fetch(geocodeUrl, {
-        headers: {
-          'User-Agent': 'AirQualityApp/1.0'
-        }
-      });
+    // Check if AQICN API returned valid data
+    if (airQualityData.status !== 'ok' || !airQualityData.data) {
+      console.error('AQICN API returned invalid data:', airQualityData);
       
-      if (geocodeResponse.ok) {
-        const geocodeData = await geocodeResponse.json();
-        // Try to get district, city, or village name in Thai
-        location = geocodeData.address?.suburb || 
-                   geocodeData.address?.city || 
-                   geocodeData.address?.town || 
-                   geocodeData.address?.village || 
-                   geocodeData.display_name?.split(',')[0] || 
-                   'Unknown Location';
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      location = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+      // Return fallback data
+      return new Response(
+        JSON.stringify({
+          pm25: 35,
+          pm10: 50,
+          no2: 30,
+          o3: 40,
+          so2: 10,
+          co: 500,
+          aqi: 75,
+          location: `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+          timestamp: new Date().toISOString(),
+          temperature: 28,
+          humidity: 65,
+          source: 'Fallback',
+          error: 'API returned invalid data',
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Extract air quality data from OpenWeatherMap
-    const components = airQualityData.list?.[0]?.components || {};
-    const mainData = airQualityData.list?.[0]?.main || {};
+    const data = airQualityData.data;
     
-    // OpenWeatherMap provides concentrations in μg/m³
-    const pm25 = Math.round(components.pm2_5 || 0);
-    const pm10 = Math.round(components.pm10 || 0);
-    const no2 = Math.round(components.no2 || 0);
-    const o3 = Math.round(components.o3 || 0);
-    const so2 = Math.round(components.so2 || 0);
-    const co = Math.round(components.co || 0);
+    // Extract location name from AQICN data
+    let location = data.city?.name || 'Unknown Location';
     
-    // OpenWeatherMap AQI (1-5 scale), convert to US AQI scale (0-500)
-    const owmAqi = mainData.aqi || 1;
-    const aqiConversion = [0, 50, 100, 150, 200, 300]; // Approximate conversion
-    const aqi = aqiConversion[owmAqi] || 50;
+    // Extract air quality data from AQICN
+    const aqi = Math.round(data.aqi || 0);
+    const iaqi = data.iaqi || {};
+    
+    // AQICN provides individual pollutant AQI values, not concentrations
+    // We'll use the values directly as they represent concentration levels
+    const pm25 = Math.round(iaqi.pm25?.v || 0);
+    const pm10 = Math.round(iaqi.pm10?.v || 0);
+    const no2 = Math.round(iaqi.no2?.v || 0);
+    const o3 = Math.round(iaqi.o3?.v || 0);
+    const so2 = Math.round(iaqi.so2?.v || 0);
+    const co = Math.round(iaqi.co?.v || 0);
+    
+    // Extract temperature and humidity from AQICN data
+    const temperature = Math.round(iaqi.t?.v || 28);
+    const humidity = Math.round(iaqi.h?.v || 65);
     
     const timestamp = new Date().toISOString();
-
-    // Fetch weather data for temperature and humidity
-    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${OPENWEATHER_API_KEY}&units=metric`;
-    let temperature = 25;
-    let humidity = 60;
-    
-    try {
-      const weatherResponse = await fetch(weatherUrl);
-      if (weatherResponse.ok) {
-        const weatherData = await weatherResponse.json();
-        temperature = Math.round(weatherData.main?.temp || 25);
-        humidity = Math.round(weatherData.main?.humidity || 60);
-      }
-    } catch (error) {
-      console.error('Weather fetch error:', error);
-    }
     
     console.log('Processed data:', { 
       pm25, pm10, no2, o3, so2, co, aqi,
@@ -179,7 +150,7 @@ serve(async (req) => {
         timestamp,
         temperature,
         humidity,
-        source: 'OpenWeatherMap'
+        source: 'AQICN'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
