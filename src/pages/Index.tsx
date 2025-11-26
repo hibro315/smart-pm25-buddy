@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AirQualityCard } from "@/components/AirQualityCard";
-import { HealthProfileForm, UserHealthProfile } from "@/components/HealthProfileForm";
-import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
+import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
 import { HealthRecommendations } from "@/components/HealthRecommendations";
 import { AlertNotification } from "@/components/AlertNotification";
 import { NearbyHospitals } from "@/components/NearbyHospitals";
@@ -14,6 +13,7 @@ import { LocationMonitorAlert } from "@/components/LocationMonitorAlert";
 import { PHRIDisplay } from "@/components/PHRIDisplay";
 import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
+import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { PerformanceDashboard } from "@/components/PerformanceDashboard";
 import { MaskDetection } from "@/components/MaskDetection";
@@ -25,7 +25,8 @@ import { Label } from "@/components/ui/label";
 import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, Shield, Activity, LogOut, TrendingUp } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
-import { useAirQuality } from "@/hooks/useAirQuality";
+import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
+import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useLocationMonitor } from "@/hooks/useLocationMonitor";
 import { useBackgroundSync } from "@/hooks/useBackgroundSync";
 import { Geolocation } from '@capacitor/geolocation';
@@ -34,16 +35,22 @@ const Index = () => {
   const navigate = useNavigate();
   const [authUser, setAuthUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const { data, loading, refresh } = useAirQuality();
+  const { data, loading, error, usingFallback, refetch } = useAirQualityWithFallback();
   const { unsyncedCount } = useBackgroundSync();
-  const [userProfile, setUserProfile] = useState<UserHealthProfile | null>(null);
+  const { profile: userProfile, saving: profileSaving, saveProfile } = useHealthProfile();
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
   const [currentPHRI, setCurrentPHRI] = useState<number | undefined>(undefined);
   
   const { currentAlert, isMonitoring, clearAlert } = useLocationMonitor({
-    userProfile,
+    userProfile: userProfile ? {
+      name: '',
+      age: String(userProfile.age),
+      conditions: userProfile.chronicConditions,
+      emergencyContact: '',
+      medications: ''
+    } : null,
     enabled: monitoringEnabled
   });
 
@@ -70,15 +77,6 @@ const Index = () => {
   }, [navigate]);
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('healthProfile');
-    if (savedProfile) {
-      try {
-        setUserProfile(JSON.parse(savedProfile));
-      } catch (e) {
-        console.error('Failed to load profile:', e);
-      }
-    }
-
     // Get current position for map
     const getCurrentPos = async () => {
       try {
@@ -94,9 +92,8 @@ const Index = () => {
     getCurrentPos();
   }, []);
 
-  const handleSaveProfile = (profile: UserHealthProfile) => {
-    setUserProfile(profile);
-    localStorage.setItem('healthProfile', JSON.stringify(profile));
+  const handleSaveProfile = async () => {
+    await saveProfile(userProfile);
     setShowProfileForm(false);
   };
 
@@ -207,11 +204,11 @@ const Index = () => {
         <AlertNotification 
           pm25={pm25Value} 
           location={location}
-          hasHealthConditions={userProfile !== null && userProfile.conditions.length > 0}
+          hasHealthConditions={userProfile !== null && userProfile.chronicConditions.length > 0}
         />
 
         {/* Location Monitoring Toggle */}
-        {userProfile && userProfile.conditions.length > 0 && (
+        {userProfile && userProfile.chronicConditions.length > 0 && (
           <Card className="p-4 bg-primary/5 border-primary/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -239,7 +236,7 @@ const Index = () => {
         {/* Action Buttons */}
         <div className="flex gap-3 flex-wrap">
           <Button
-            onClick={refresh}
+            onClick={refetch}
             variant="outline"
             disabled={loading}
             className="flex-1 min-w-[140px]"
@@ -260,6 +257,11 @@ const Index = () => {
               ตั้งค่าโปรไฟล์
             </Button>
           )}
+          {usingFallback && (
+            <div className="w-full text-sm text-warning flex items-center gap-2">
+              ⚠️ ใช้ข้อมูลล่าสุดที่บันทึกไว้ (API ไม่ตอบสนอง)
+            </div>
+          )}
         </div>
 
         {/* Air Quality Card */}
@@ -271,7 +273,6 @@ const Index = () => {
           aqi={data?.aqi}
           location={location}
           timestamp={currentTime}
-          source={data?.source}
         />
 
         {/* PHRI Display */}
@@ -290,20 +291,32 @@ const Index = () => {
           }}
         />
 
-        {/* User Profile Display or Form */}
-        {userProfile && !showProfileForm ? (
-          <HealthProfileDisplay 
-            profile={userProfile}
-            onEdit={handleEditProfile}
-          />
-        ) : showProfileForm ? (
+        {/* Enhanced Health Profile Form */}
+        {!userProfile || showProfileForm ? (
           <div className="animate-in slide-in-from-top-5 duration-500">
-            <HealthProfileForm 
-              onSave={handleSaveProfile}
-              initialProfile={userProfile || undefined}
-            />
+            <EnhancedHealthProfileForm />
           </div>
-        ) : null}
+        ) : (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">โปรไฟล์สุขภาพ</h3>
+              <Button variant="outline" size="sm" onClick={handleEditProfile}>
+                <User className="w-4 h-4 mr-2" />
+                แก้ไข
+              </Button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <p><strong>อายุ:</strong> {userProfile.age} ปี</p>
+              <p><strong>เพศ:</strong> {userProfile.gender === 'male' ? 'ชาย' : userProfile.gender === 'female' ? 'หญิง' : 'อื่นๆ'}</p>
+              <p><strong>ความไวต่อฝุ่น:</strong> {userProfile.dustSensitivity === 'high' ? 'สูง' : userProfile.dustSensitivity === 'medium' ? 'ปานกลาง' : 'ต่ำ'}</p>
+              <p><strong>กิจกรรม:</strong> {userProfile.physicalActivity === 'active' ? 'สูง' : userProfile.physicalActivity === 'moderate' ? 'ปานกลาง' : 'น้อย'}</p>
+              <p><strong>เครื่องฟอกอากาศ:</strong> {userProfile.hasAirPurifier ? 'มี' : 'ไม่มี'}</p>
+              {userProfile.chronicConditions.length > 0 && (
+                <p><strong>โรคประจำตัว:</strong> {userProfile.chronicConditions.join(', ')}</p>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation and PHRI */}
         <Tabs defaultValue="chatbot" className="w-full">
@@ -345,6 +358,7 @@ const Index = () => {
               currentLocation={location}
               onCalculated={(phri) => setCurrentPHRI(phri)}
             />
+            <PHRITrendChart />
             <HealthLogsHistory />
           </TabsContent>
           <TabsContent value="ai-advice" className="mt-4">
@@ -352,14 +366,14 @@ const Index = () => {
               pm25={pm25Value}
               temperature={data?.temperature || 0}
               humidity={data?.humidity || 0}
-              healthConditions={userProfile?.conditions}
+              healthConditions={userProfile?.chronicConditions}
             />
           </TabsContent>
           <TabsContent value="recommendations" className="mt-4">
             <HealthRecommendations 
               pm25={pm25Value}
-              hasHealthConditions={userProfile !== null && userProfile.conditions.length > 0}
-              userConditions={userProfile?.conditions || []}
+              hasHealthConditions={userProfile !== null && userProfile.chronicConditions.length > 0}
+              userConditions={userProfile?.chronicConditions || []}
             />
           </TabsContent>
           <TabsContent value="hospitals" className="mt-4">
