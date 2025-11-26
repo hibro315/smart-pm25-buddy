@@ -26,6 +26,7 @@ import { MapPin, RefreshCw, User, Hospital, Loader2, Navigation, MessageSquare, 
 import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-clean-air.jpg";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useLocationMonitor } from "@/hooks/useLocationMonitor";
 import { useBackgroundSync } from "@/hooks/useBackgroundSync";
@@ -36,6 +37,13 @@ const Index = () => {
   const [authUser, setAuthUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const { data, loading, error, usingFallback, refetch } = useAirQualityWithFallback();
+  const { 
+    isSupported: pushSupported, 
+    isRegistered: pushRegistered, 
+    permission: pushPermission,
+    requestPermission: requestPushPermission,
+    registerPeriodicSync 
+  } = usePushNotifications();
   const { unsyncedCount } = useBackgroundSync();
   const { profile: userProfile, saving: profileSaving, saveProfile } = useHealthProfile();
   const [showProfileForm, setShowProfileForm] = useState(false);
@@ -75,6 +83,22 @@ const Index = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Auto-enable push notifications for background monitoring
+  useEffect(() => {
+    const enablePushNotifications = async () => {
+      if (pushSupported && pushPermission === 'default') {
+        const granted = await requestPushPermission();
+        if (granted) {
+          await registerPeriodicSync();
+        }
+      } else if (pushSupported && pushPermission === 'granted' && !pushRegistered) {
+        await registerPeriodicSync();
+      }
+    };
+    
+    enablePushNotifications();
+  }, [pushSupported, pushPermission, pushRegistered]);
 
   useEffect(() => {
     // Get current position for map
