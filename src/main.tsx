@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { setupGlobalErrorHandlers } from "./utils/errorLogger";
 import { registerSW } from 'virtual:pwa-register';
 import { registerPeriodicBackgroundSync } from '@/utils/backgroundSync';
 
@@ -35,5 +36,8 @@ const updateSW = registerSW({
     }
   }
 });
+
+// Setup global error handlers
+setupGlobalErrorHandlers();
 
 createRoot(document.getElementById("root")!).render(<App />);
