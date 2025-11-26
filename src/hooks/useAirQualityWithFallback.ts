@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { getPosition } from '@/utils/geolocation';
 
 interface AirQualityData {
   pm25: number;
@@ -20,21 +21,44 @@ const FETCH_TIMEOUT = 10000; // 10 seconds
 const POLLING_INTERVAL = 15 * 60 * 1000; // 15 minutes
 const CACHE_KEY = 'lastKnownAQI';
 
-export const useAirQualityWithFallback = (latitude?: number, longitude?: number) => {
+export const useAirQualityWithFallback = () => {
   const [data, setData] = useState<AirQualityData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lon: number } | null>(null);
   const pollingRef = useRef<NodeJS.Timeout>();
   const abortControllerRef = useRef<AbortController>();
 
+  // Get user's location
   useEffect(() => {
-    if (latitude && longitude) {
-      fetchWithFallback(latitude, longitude);
+    const fetchLocation = async () => {
+      try {
+        const position = await getPosition();
+        setCurrentLocation({
+          lat: position.latitude,
+          lon: position.longitude
+        });
+      } catch (error) {
+        console.error('Error getting location:', error);
+        toast({
+          title: 'ไม่สามารถระบุตำแหน่งได้',
+          description: 'กรุณาอนุญาตการเข้าถึงตำแหน่ง',
+          variant: 'destructive',
+        });
+      }
+    };
+    
+    fetchLocation();
+  }, []);
+
+  useEffect(() => {
+    if (currentLocation) {
+      fetchWithFallback(currentLocation.lat, currentLocation.lon);
       
       // Set up polling
       pollingRef.current = setInterval(() => {
-        fetchWithFallback(latitude, longitude);
+        fetchWithFallback(currentLocation.lat, currentLocation.lon);
       }, POLLING_INTERVAL);
 
       return () => {
@@ -42,7 +66,7 @@ export const useAirQualityWithFallback = (latitude?: number, longitude?: number)
         if (abortControllerRef.current) abortControllerRef.current.abort();
       };
     }
-  }, [latitude, longitude]);
+  }, [currentLocation]);
 
   const fetchWithFallback = async (lat: number, lon: number) => {
     try {
@@ -120,9 +144,26 @@ export const useAirQualityWithFallback = (latitude?: number, longitude?: number)
     }
   };
 
-  const refetch = () => {
-    if (latitude && longitude) {
-      fetchWithFallback(latitude, longitude);
+  const refetch = async () => {
+    if (currentLocation) {
+      await fetchWithFallback(currentLocation.lat, currentLocation.lon);
+    } else {
+      // Try to get location again
+      try {
+        const position = await getPosition();
+        setCurrentLocation({
+          lat: position.latitude,
+          lon: position.longitude
+        });
+        await fetchWithFallback(position.latitude, position.longitude);
+      } catch (error) {
+        console.error('Error getting location:', error);
+        toast({
+          title: 'ไม่สามารถระบุตำแหน่งได้',
+          description: 'กรุณาอนุญาตการเข้าถึงตำแหน่ง',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
