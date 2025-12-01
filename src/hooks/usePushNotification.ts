@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
 
 const VAPID_PUBLIC_KEY = 'BFbhdMwAkLc3OSDoKbBqbzHjsyjx9tQrpN3PgJAj_SeXAC_TLq04JvAH1gU7k0DuigSvT5kokCsMxFZCGDnT-2s';
 
@@ -10,20 +12,35 @@ export const usePushNotification = () => {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const isNative = Capacitor.isNativePlatform();
 
   // Check if push notifications are supported
   useEffect(() => {
-    const checkSupport = () => {
-      const supported = 
-        'serviceWorker' in navigator &&
-        'PushManager' in window &&
-        'Notification' in window;
-      
-      setIsSupported(supported);
+    const checkSupport = async () => {
+      if (isNative) {
+        // Native platforms always support push notifications
+        setIsSupported(true);
+        
+        // Check if already registered
+        try {
+          const permStatus = await PushNotifications.checkPermissions();
+          setIsSubscribed(permStatus.receive === 'granted');
+        } catch (error) {
+          console.error('Error checking native push permissions:', error);
+        }
+      } else {
+        // Web platform check
+        const supported = 
+          'serviceWorker' in navigator &&
+          'PushManager' in window &&
+          'Notification' in window;
+        
+        setIsSupported(supported);
+      }
     };
 
     checkSupport();
-  }, []);
+  }, [isNative]);
 
   // Check existing subscription
   useEffect(() => {
@@ -76,7 +93,7 @@ export const usePushNotification = () => {
     if (!isSupported) {
       toast({
         title: '❌ ไม่รองรับ',
-        description: 'เบราว์เซอร์ของคุณไม่รองรับ Push Notifications',
+        description: isNative ? 'อุปกรณ์ของคุณไม่รองรับ Push Notifications' : 'เบราว์เซอร์ของคุณไม่รองรับ Push Notifications',
         variant: 'destructive',
       });
       return false;
@@ -85,77 +102,175 @@ export const usePushNotification = () => {
     setLoading(true);
 
     try {
-      // Request permission first
-      const hasPermission = await requestPermission();
-      if (!hasPermission) {
-        setLoading(false);
-        return false;
-      }
+      if (isNative) {
+        // === Native Platform Subscription (Android/iOS) ===
+        console.log('🔔 Subscribing to native push notifications...');
+        
+        let permStatus = await PushNotifications.checkPermissions();
 
-      // Get service worker registration
-      const registration = await navigator.serviceWorker.ready;
-
-      // Subscribe to push notifications
-      const sub = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
-      });
-
-      console.log('Push subscription created:', sub);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Get current location for initial setup
-      let latitude, longitude;
-      if ('geolocation' in navigator) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              timeout: 10000,
-              enableHighAccuracy: false,
-              maximumAge: 60000
-            });
-          });
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-        } catch (geoError) {
-          console.warn('Could not get location:', geoError);
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
         }
-      }
 
-      // Save subscription to database
-      const { error } = await supabase
-        .from('push_subscriptions')
-        .upsert({
-          user_id: user.id,
-          subscription: sub.toJSON() as any,
-          enabled: true,
-          last_location: latitude && longitude ? { latitude, longitude } as any : null,
-          notification_settings: {
-            pm25_threshold: 50,
-            enabled: true
-          } as any
-        } as any, {
-          onConflict: 'user_id'
+        if (permStatus.receive !== 'granted') {
+          toast({
+            title: '❌ ไม่อนุญาตการแจ้งเตือน',
+            description: 'กรุณาเปิดการแจ้งเตือนในการตั้งค่าอุปกรณ์',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return false;
+        }
+
+        // Register for push notifications
+        await PushNotifications.register();
+
+        // Listen for registration token
+        await PushNotifications.addListener('registration', async (token: Token) => {
+          console.log('✅ Push registration token:', token.value);
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Get current location
+          let latitude, longitude;
+          try {
+            const { Geolocation } = await import('@capacitor/geolocation');
+            const position = await Geolocation.getCurrentPosition();
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+          } catch (error) {
+            console.warn('Could not get location:', error);
+          }
+
+          // Save FCM/APNs token to database
+          await supabase
+            .from('push_subscriptions')
+            .upsert({
+              user_id: user.id,
+              subscription: { 
+                token: token.value, 
+                type: 'native',
+                platform: Capacitor.getPlatform()
+              } as any,
+              enabled: true,
+              last_location: latitude && longitude ? { latitude, longitude } as any : null,
+              notification_settings: {
+                pm25_threshold: 50,
+                enabled: true
+              } as any
+            } as any, {
+              onConflict: 'user_id'
+            });
+
+          console.log('✅ Native push subscription saved to database');
         });
 
-      if (error) throw error;
+        // Listen for registration errors
+        await PushNotifications.addListener('registrationError', (error: any) => {
+          console.error('❌ Push registration error:', error);
+          toast({
+            title: '❌ เกิดข้อผิดพลาด',
+            description: 'ไม่สามารถลงทะเบียน Push Notifications ได้',
+            variant: 'destructive',
+          });
+        });
 
-      setSubscription(sub);
-      setIsSubscribed(true);
+        // Listen for incoming push notifications
+        await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
+          console.log('📬 Push notification received:', notification);
+          
+          // Show local notification if app is in foreground
+          toast({
+            title: notification.title || '🌫️ แจ้งเตือนคุณภาพอากาศ',
+            description: notification.body || 'มีการเปลี่ยนแปลงคุณภาพอากาศ',
+          });
+        });
 
-      toast({
-        title: '✅ เปิดใช้งาน Push Notifications แล้ว',
-        description: 'คุณจะได้รับการแจ้งเตือนเมื่อค่าฝุ่นเปลี่ยนแปลง',
-      });
+        // Listen for notification actions
+        await PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
+          console.log('🔔 Push notification action performed:', notification);
+        });
 
-      setLoading(false);
-      return true;
+        setIsSubscribed(true);
+        toast({
+          title: '✅ เปิดใช้งาน Push Notifications แล้ว',
+          description: 'คุณจะได้รับการแจ้งเตือนเมื่อค่าฝุ่นเปลี่ยนแปลง',
+        });
+        setLoading(false);
+        return true;
+
+      } else {
+        // === Web Platform Subscription (PWA) ===
+        console.log('🌐 Subscribing to web push notifications...');
+        
+        const hasPermission = await requestPermission();
+        if (!hasPermission) {
+          setLoading(false);
+          return false;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
+        });
+
+        console.log('✅ Web push subscription created:', sub);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('User not authenticated');
+        }
+
+        let latitude, longitude;
+        if ('geolocation' in navigator) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 10000,
+                enableHighAccuracy: false,
+                maximumAge: 60000
+              });
+            });
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+          } catch (geoError) {
+            console.warn('Could not get location:', geoError);
+          }
+        }
+
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .upsert({
+            user_id: user.id,
+            subscription: { 
+              ...sub.toJSON(),
+              type: 'web'
+            } as any,
+            enabled: true,
+            last_location: latitude && longitude ? { latitude, longitude } as any : null,
+            notification_settings: {
+              pm25_threshold: 50,
+              enabled: true
+            } as any
+          } as any, {
+            onConflict: 'user_id'
+          });
+
+        if (error) throw error;
+
+        setSubscription(sub);
+        setIsSubscribed(true);
+
+        toast({
+          title: '✅ เปิดใช้งาน Push Notifications แล้ว',
+          description: 'คุณจะได้รับการแจ้งเตือนเมื่อค่าฝุ่นเปลี่ยนแปลง',
+        });
+
+        setLoading(false);
+        return true;
+      }
     } catch (error) {
       console.error('Error subscribing to push:', error);
       toast({
@@ -170,25 +285,37 @@ export const usePushNotification = () => {
 
   // Unsubscribe from push notifications
   const unsubscribe = async (): Promise<boolean> => {
-    if (!subscription) return false;
-
     setLoading(true);
 
     try {
-      await subscription.unsubscribe();
+      if (isNative) {
+        // Unregister native push notifications
+        await PushNotifications.removeAllListeners();
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('push_subscriptions')
+            .update({ enabled: false })
+            .eq('user_id', user.id);
+        }
+      } else {
+        // Web platform unsubscribe
+        if (subscription) {
+          await subscription.unsubscribe();
+        }
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('push_subscriptions')
+            .update({ enabled: false })
+            .eq('user_id', user.id);
+        }
 
-      if (user) {
-        // Remove subscription from database
-        await supabase
-          .from('push_subscriptions')
-          .update({ enabled: false })
-          .eq('user_id', user.id);
+        setSubscription(null);
       }
 
-      setSubscription(null);
       setIsSubscribed(false);
 
       toast({

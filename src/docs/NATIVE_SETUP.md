@@ -4,7 +4,38 @@
 
 ### 📱 Android Setup
 
-#### 1. สิทธิ์ที่จำเป็น (Permissions)
+#### 1. Push Notifications - Firebase Cloud Messaging (FCM)
+
+**ขั้นตอนการตั้งค่า FCM:**
+
+1. ไปที่ [Firebase Console](https://console.firebase.google.com/)
+2. สร้างโปรเจคใหม่หรือเลือกโปรเจคที่มี
+3. เพิ่ม Android app ด้วย package name: `app.lovable.cc089fb2d7db45328059e13b81b48a98`
+4. ดาวน์โหลด `google-services.json` และวางที่ `android/app/`
+
+**เพิ่ม Dependencies ใน `android/app/build.gradle`:**
+
+```gradle
+dependencies {
+    implementation 'com.google.firebase:firebase-messaging:23.4.0'
+    implementation platform('com.google.firebase:firebase-bom:32.7.0')
+}
+
+// ท้ายไฟล์
+apply plugin: 'com.google.gms.google-services'
+```
+
+**เพิ่มใน `android/build.gradle` (project level):**
+
+```gradle
+buildscript {
+    dependencies {
+        classpath 'com.google.gms:google-services:4.4.0'
+    }
+}
+```
+
+#### 2. สิทธิ์ที่จำเป็น (Permissions)
 เพิ่มใน `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
@@ -36,7 +67,7 @@
 </manifest>
 ```
 
-#### 2. สร้าง Notification Channel (Android 8.0+)
+#### 3. สร้าง Notification Channel (Android 8.0+)
 ไฟล์ `android/app/src/main/res/values/strings.xml`:
 
 ```xml
@@ -48,7 +79,7 @@
 </resources>
 ```
 
-#### 3. Build Settings
+#### 4. Build Settings
 ไฟล์ `android/app/build.gradle`:
 
 ```gradle
@@ -62,7 +93,7 @@ android {
 }
 ```
 
-#### 4. ทดสอบบน Android
+#### 5. ทดสอบบน Android
 ```bash
 # Build และรันบน Android
 npx cap sync android
@@ -73,7 +104,22 @@ npx cap run android
 
 ### 🍎 iOS Setup
 
-#### 1. สิทธิ์ที่จำเป็น (Info.plist)
+#### 1. Push Notifications - Apple Push Notification Service (APNs)
+
+**ขั้นตอนการตั้งค่า APNs:**
+
+1. เปิดโปรเจค iOS ด้วย Xcode: `npx cap open ios`
+2. เลือก Target → "Signing & Capabilities"
+3. คลิก "+ Capability" และเพิ่ม:
+   - **Push Notifications**
+   - **Background Modes** (เลือก Remote notifications)
+
+4. สร้าง APNs Certificate ใน [Apple Developer Portal](https://developer.apple.com/):
+   - ไปที่ Certificates, Identifiers & Profiles
+   - สร้าง APNs SSL Certificate (Development/Production)
+   - ดาวน์โหลดและติดตั้งใน Keychain Access
+
+#### 2. สิทธิ์ที่จำเป็น (Info.plist)
 เพิ่มใน `ios/App/App/Info.plist`:
 
 ```xml
@@ -97,7 +143,7 @@ npx cap run android
 </dict>
 ```
 
-#### 2. Enable Background Location Capability
+#### 3. Enable Background Location Capability
 1. เปิดโปรเจค iOS ด้วย Xcode: `npx cap open ios`
 2. เลือก Target ของแอป → "Signing & Capabilities"
 3. คลิก "+ Capability" และเพิ่ม "Background Modes"
@@ -106,7 +152,7 @@ npx cap run android
    - ☑️ Background fetch
    - ☑️ Remote notifications
 
-#### 3. ทดสอบบน iOS
+#### 4. ทดสอบบน iOS
 ```bash
 # Build และรันบน iOS (ต้องใช้ Mac)
 npx cap sync ios
@@ -116,6 +162,47 @@ npx cap run ios
 ---
 
 ### 🔧 การใช้งานใน Code
+
+#### เปิดใช้งาน Push Notifications (Native + Web)
+
+```typescript
+import { usePushNotification } from '@/hooks/usePushNotification';
+
+const MyComponent = () => {
+  const {
+    isSupported,      // รองรับหรือไม่
+    isSubscribed,     // subscribe แล้วหรือยัง
+    loading,          // กำลังโหลด
+    subscribe,        // เปิดใช้งาน
+    unsubscribe,      // ปิดใช้งาน
+    updateLocation    // อัปเดตตำแหน่ง
+  } = usePushNotification();
+
+  // เปิดใช้งาน push notifications
+  const handleEnable = async () => {
+    const success = await subscribe();
+    if (success) {
+      console.log('✅ Push notifications enabled');
+    }
+  };
+
+  // ปิดใช้งาน
+  const handleDisable = async () => {
+    await unsubscribe();
+  };
+
+  // อัปเดตตำแหน่ง
+  const handleLocationUpdate = async (lat: number, lon: number) => {
+    await updateLocation(lat, lon);
+  };
+
+  return (
+    <button onClick={handleEnable} disabled={!isSupported || loading}>
+      {isSubscribed ? 'ปิดการแจ้งเตือน' : 'เปิดการแจ้งเตือน'}
+    </button>
+  );
+};
+```
 
 #### เปิดใช้งาน Background Location Tracking
 
