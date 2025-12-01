@@ -35,6 +35,8 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useLocationMonitor } from "@/hooks/useLocationMonitor";
 import { useBackgroundSync } from "@/hooks/useBackgroundSync";
+import { useEnhancedPHRI, EnhancedPHRIResult } from "@/hooks/useEnhancedPHRI";
+import { useDailySymptoms } from "@/hooks/useDailySymptoms";
 import { Geolocation } from '@capacitor/geolocation';
 
 const Index = () => {
@@ -51,10 +53,12 @@ const Index = () => {
   } = usePushNotifications();
   const { unsyncedCount } = useBackgroundSync();
   const { profile: userProfile, saving: profileSaving, saveProfile } = useHealthProfile();
+  const { todaySymptoms } = useDailySymptoms();
+  const { calculateEnhancedPHRI } = useEnhancedPHRI();
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
-  const [currentPHRI, setCurrentPHRI] = useState<number | undefined>(undefined);
+  const [phriResult, setPhriResult] = useState<EnhancedPHRIResult | undefined>(undefined);
   
   const { currentAlert, isMonitoring, clearAlert } = useLocationMonitor({
     userProfile: userProfile ? {
@@ -121,6 +125,53 @@ const Index = () => {
     };
     getCurrentPos();
   }, []);
+
+  // Calculate Enhanced PHRI when data is available
+  useEffect(() => {
+    if (data && userProfile) {
+      try {
+        const symptoms: string[] = [];
+        if (todaySymptoms.cough) symptoms.push('cough');
+        if (todaySymptoms.sneeze) symptoms.push('sneeze');
+        if (todaySymptoms.wheezing) symptoms.push('wheezing');
+        if (todaySymptoms.chest_tightness) symptoms.push('chest tightness');
+        if (todaySymptoms.shortness_of_breath) symptoms.push('shortness of breath');
+        if (todaySymptoms.eye_irritation) symptoms.push('eye irritation');
+        if (todaySymptoms.fatigue) symptoms.push('fatigue');
+
+        const result = calculateEnhancedPHRI({
+          pm25: data.pm25,
+          aqi: data.aqi,
+          pm10: data.pm10,
+          no2: data.no2,
+          o3: data.o3,
+          co: data.co,
+          so2: data.so2,
+          temperature: data.temperature,
+          humidity: data.humidity,
+          pressure: data.pressure,
+          wind: data.wind,
+          nearbyStations: data.nearbyStations,
+          age: userProfile.age,
+          gender: userProfile.gender || 'male',
+          chronicConditions: userProfile.chronicConditions || [],
+          dustSensitivity: (userProfile.dustSensitivity as 'low' | 'medium' | 'high') || 'medium',
+          physicalActivity: (userProfile.physicalActivity as 'sedentary' | 'moderate' | 'active') || 'moderate',
+          hasAirPurifier: userProfile.hasAirPurifier || false,
+          outdoorTime: 60, // Default to 60 minutes
+          wearingMask: false, // Can be set from mask detection if available
+          hasSymptoms: symptoms.length > 0,
+          symptoms: symptoms,
+          location: data.location,
+          latitude: currentPosition?.lat,
+          longitude: currentPosition?.lng,
+        });
+        setPhriResult(result);
+      } catch (error) {
+        console.error('Error calculating PHRI:', error);
+      }
+    }
+  }, [data, userProfile, todaySymptoms, currentPosition, calculateEnhancedPHRI]);
 
   const handleSaveProfile = async () => {
     await saveProfile(userProfile);
@@ -318,7 +369,7 @@ const Index = () => {
 
         {/* PHRI Display */}
         <PHRIDisplay 
-          phri={currentPHRI}
+          result={phriResult}
         />
 
         {/* Symptom Quick Log */}
@@ -401,7 +452,6 @@ const Index = () => {
               currentAQI={data?.aqi || 0}
               currentPM25={pm25Value}
               currentLocation={location}
-              onCalculated={(phri) => setCurrentPHRI(phri)}
             />
             <PHRITrendChart />
             <HealthLogsHistory />
