@@ -152,11 +152,30 @@ export const HealthChatbotEnhanced = ({
     let assistantContent = "";
 
     try {
-      // Get current session token
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get current session and verify user
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session) {
-        throw new Error("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+      if (sessionError || !session) {
+        toast({
+          title: "กรุณาเข้าสู่ระบบ",
+          description: "คุณต้องเข้าสู่ระบบก่อนใช้งานแชทบอท",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Verify the user is still valid
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast({
+          title: "เซสชันหมดอายุ",
+          description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
 
       // Include user health profile in context
@@ -186,8 +205,29 @@ export const HealthChatbotEnhanced = ({
         }
       );
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to start stream");
+      if (!response.ok) {
+        if (response.status === 401) {
+          const errorData = await response.json().catch(() => ({}));
+          toast({
+            title: "กรุณาเข้าสู่ระบบใหม่",
+            description: errorData.error || "เซสชันของคุณหมดอายุแล้ว",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        if (response.status === 429) {
+          toast({
+            title: "ใช้งานเกินกำหนด",
+            description: "กรุณาลองใหม่อีกครั้งภายหลัง",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        if (!response.body) {
+          throw new Error("Failed to start stream");
+        }
       }
 
       const reader = response.body.getReader();
