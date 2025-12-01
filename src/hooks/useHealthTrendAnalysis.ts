@@ -40,6 +40,19 @@ export const useHealthTrendAnalysis = () => {
         return;
       }
 
+      // Verify the session is still valid
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast({
+          title: 'กรุณาเข้าสู่ระบบใหม่',
+          description: 'เซสชันของคุณหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('health-trend-analysis', {
         body: { sessionId, daysBack }
       });
