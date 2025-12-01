@@ -37,7 +37,27 @@ serve(async (req) => {
       );
     }
 
-    const IQAIR_API_KEY = 'c3da4002-7922-40ec-8fa0-fd79d7b4e607';
+    const IQAIR_API_KEY = Deno.env.get('IQAIR_API_KEY');
+    
+    if (!IQAIR_API_KEY) {
+      console.error('IQAIR_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'API key not configured',
+          pm25: 35,
+          aqi: 75,
+          location: 'Configuration Error',
+          timestamp: new Date().toISOString(),
+          temperature: 28,
+          humidity: 65,
+          source: 'Fallback'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Fetch air quality data from IQAir API
     const airQualityUrl = `http://api.airvisual.com/v2/nearest_city?lat=${latitude}&lon=${longitude}&key=${IQAIR_API_KEY}`;

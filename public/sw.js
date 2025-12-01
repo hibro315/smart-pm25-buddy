@@ -210,15 +210,13 @@ const saveAirQualityData = async (data) => {
 // Fetch air quality data from edge function
 const fetchAirQuality = async (latitude, longitude) => {
   try {
-    // Get Supabase URL from environment (injected during build)
-    const supabaseUrl = 'https://mfieephfmgoqszratqhu.supabase.co';
-    const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1maWVlcGhmbWdvcXN6cmF0cWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDk2NzQsImV4cCI6MjA3OTUyNTY3NH0.0SU8y29BS6IcT8on5l2U9JD74zafNPBK0CVLCse84fQ';
+    // Use self.location to get the origin dynamically
+    const baseUrl = self.location.origin;
     
-    const response = await fetch(`${supabaseUrl}/functions/v1/get-air-quality`, {
+    const response = await fetch(`${baseUrl}/.netlify/functions/get-air-quality`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ latitude, longitude })
     });
@@ -235,51 +233,111 @@ const fetchAirQuality = async (latitude, longitude) => {
   }
 };
 
-// Check if notification should be triggered
-const shouldNotify = (pm25, userProfile, previousPm25, hasLocationChanged) => {
-  // Always notify on location change if PM2.5 is unhealthy
-  if (hasLocationChanged && pm25 > 37) {
+// Check if notification should be triggered based on AQI thresholds
+const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged) => {
+  // Calculate AQI change
+  const aqiChange = previousAqi ? Math.abs(aqi - previousAqi) : 0;
+  
+  // Always notify on location change if AQI is unhealthy (>100)
+  if (hasLocationChanged && aqi > 100) {
     return { notify: true, reason: 'location_change' };
   }
   
-  // Notify if PM2.5 is high for users with health conditions
-  if (userProfile?.conditions && userProfile.conditions.length > 0 && pm25 > 50) {
-    return { notify: true, reason: 'high_pm25_with_conditions' };
+  // Notify if AQI is moderate or higher for users with health conditions
+  if (userProfile?.conditions && userProfile.conditions.length > 0 && aqi > 50) {
+    return { notify: true, reason: 'health_conditions' };
   }
   
-  // Notify if PM2.5 significantly increased (>15 points)
-  if (previousPm25 && pm25 > previousPm25 + 15 && pm25 > 37) {
-    return { notify: true, reason: 'pm25_spike' };
+  // Notify if AQI significantly increased (>25 points change)
+  if (aqiChange > 25 && aqi > 50) {
+    return { notify: true, reason: 'aqi_spike' };
   }
   
-  // Notify if PM2.5 is very high (>90) regardless of conditions
-  if (pm25 > 90) {
-    return { notify: true, reason: 'critical_pm25' };
+  // Notify if AQI crosses into unhealthy territory (>100)
+  if (aqi > 100) {
+    return { notify: true, reason: 'unhealthy_aqi' };
+  }
+  
+  // Notify if AQI is very unhealthy (>200)
+  if (aqi > 200) {
+    return { notify: true, reason: 'critical_aqi' };
   }
   
   return { notify: false, reason: null };
 };
 
-// Show notification with vibration
-const showAirQualityNotification = async (pm25, location, severity, reason) => {
+// Get AQI category and message
+const getAQIMessage = (aqi) => {
+  if (aqi <= 50) {
+    return { 
+      category: 'Good', 
+      message: 'Good Air Quality',
+      thai: 'คุณภาพอากาศดี',
+      color: '#00E400'
+    };
+  } else if (aqi <= 100) {
+    return { 
+      category: 'Moderate', 
+      message: 'Moderate – Sensitive groups be aware',
+      thai: 'ปานกลาง – กลุ่มเสี่ยงควรระวัง',
+      color: '#FFFF00'
+    };
+  } else if (aqi <= 150) {
+    return { 
+      category: 'Unhealthy for Sensitive Groups', 
+      message: 'Unhealthy for sensitive groups',
+      thai: 'ไม่ดีต่อสุขภาพสำหรับกลุ่มเสี่ยง',
+      color: '#FF7E00'
+    };
+  } else if (aqi <= 200) {
+    return { 
+      category: 'Unhealthy', 
+      message: 'Unhealthy – Wear a mask outdoor',
+      thai: 'ไม่ดีต่อสุขภาพ – สวมหน้ากากเมื่ออยู่กลางแจ้ง',
+      color: '#FF0000'
+    };
+  } else {
+    return { 
+      category: 'Very Unhealthy', 
+      message: 'Very Unhealthy – Avoid outdoor activities',
+      thai: 'อันตรายต่อสุขภาพ – หลีกเลี่ยงกิจกรรมกลางแจ้ง',
+      color: '#8F3F97'
+    };
+  }
+};
+
+// Show notification with vibration based on AQI
+const showAirQualityNotification = async (aqi, location, reason) => {
   try {
-    let title = '⚠️ แจ้งเตือน: ค่าฝุ่นสูง';
-    let body = `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location}`;
+    const aqiInfo = getAQIMessage(aqi);
+    let title = '';
+    let body = '';
     let vibrate = [300, 100, 300];
     let requireInteraction = false;
     
-    if (severity === 'critical') {
-      title = '🚨 เตือนภัย! PM2.5 อันตราย';
-      body = `ค่าฝุ่น ${pm25} µg/m³ ที่ ${location} - ควรอยู่ในอาคารทันที!`;
+    if (aqi > 200) {
+      title = '🚨 อันตราย! คุณภาพอากาศแย่มาก';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
+      vibrate = [500, 200, 500, 200, 500];
+      requireInteraction = true;
+    } else if (aqi > 150) {
+      title = '⚠️ แจ้งเตือน: อากาศไม่ดีต่อสุขภาพ';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
       vibrate = [300, 100, 300, 100, 300];
       requireInteraction = true;
+    } else if (aqi > 100) {
+      title = '⚠️ อากาศไม่ดีสำหรับกลุ่มเสี่ยง';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
     } else if (reason === 'location_change') {
-      title = '📍 เปลี่ยนพื้นที่: ค่าฝุ่นสูง';
-      body = `คุณเข้าสู่พื้นที่ใหม่ ค่าฝุ่น ${pm25} µg/m³ ที่ ${location}`;
-    } else if (reason === 'pm25_spike') {
-      title = '⚠️ ค่าฝุ่นพุ่งสูง!';
-      body = `ค่าฝุ่นเพิ่มสูงขึ้นอย่างรวดเร็ว! ตอนนี้ ${pm25} µg/m³ ที่ ${location}`;
+      title = '📍 เปลี่ยนพื้นที่';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
+    } else if (reason === 'aqi_spike') {
+      title = '📈 คุณภาพอากาศเปลี่ยนแปลง';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
       vibrate = [300, 100, 300, 100, 300];
+    } else {
+      title = `AQI ${aqi} - ${aqiInfo.category}`;
+      body = `${aqiInfo.message}\n${location}`;
     }
     
     await sw.registration.showNotification(title, {
@@ -289,14 +347,14 @@ const showAirQualityNotification = async (pm25, location, severity, reason) => {
       tag: NOTIFICATION_TAG,
       vibrate,
       requireInteraction,
-      data: { pm25, location, severity, reason, timestamp: Date.now() },
+      data: { aqi, location, category: aqiInfo.category, reason, timestamp: Date.now() },
       actions: [
         { action: 'view', title: 'ดูรายละเอียด' },
         { action: 'dismiss', title: 'ปิด' }
       ]
     });
     
-    console.log('✅ Notification shown:', { pm25, location, severity, reason });
+    console.log('✅ Notification shown:', { aqi, location, category: aqiInfo.category, reason });
   } catch (error) {
     console.error('Error showing notification:', error);
   }
@@ -374,23 +432,18 @@ const handlePeriodicSync = async () => {
     // Get user health profile
     const healthProfile = await getHealthProfile();
     
-    // Check if notification should be triggered
+    // Check if notification should be triggered based on AQI
     const notificationCheck = shouldNotify(
-      airQualityData.pm25,
+      airQualityData.aqi,
       healthProfile,
-      previousAirQualityData?.pm25,
+      previousAirQualityData?.aqi,
       hasLocationChanged
     );
     
     if (notificationCheck.notify) {
-      let severity = 'moderate';
-      if (airQualityData.pm25 > 90) severity = 'critical';
-      else if (airQualityData.pm25 > 50) severity = 'high';
-      
       await showAirQualityNotification(
-        airQualityData.pm25,
+        airQualityData.aqi,
         airQualityData.location || 'ตำแหน่งปัจจุบัน',
-        severity,
         notificationCheck.reason
       );
     }
