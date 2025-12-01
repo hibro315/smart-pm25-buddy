@@ -32,14 +32,14 @@ export const PushNotificationSettings = () => {
             Push Notifications
           </CardTitle>
           <CardDescription>
-            เบราว์เซอร์ของคุณไม่รองรับ Push Notifications
+            อุปกรณ์ของคุณไม่รองรับ Push Notifications
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 rounded-lg bg-muted p-4">
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              กรุณาใช้ Chrome, Firefox หรือ Edge เวอร์ชันล่าสุด
+              กรุณาใช้อุปกรณ์หรือเบราว์เซอร์ที่รองรับ Push Notifications
             </p>
           </div>
         </CardContent>
@@ -124,11 +124,11 @@ export const PushNotificationSettings = () => {
         <div className="rounded-lg bg-primary/5 p-4 space-y-1">
           <p className="text-sm font-medium">ℹ️ ความเข้ากันได้</p>
           <p className="text-xs text-muted-foreground">
-            ✅ Chrome/Edge (Android) - รองรับเต็มรูปแบบ
+            ✅ Native App (Android/iOS) - รองรับเต็มรูปแบบ
             <br />
-            ⚠️ iOS - ต้อง Add to Home Screen + iOS 16.4+
+            ✅ Chrome/Edge (Android Web) - รองรับเต็มรูปแบบ
             <br />
-            ❌ Firefox iOS - ไม่รองรับ
+            ⚠️ iOS Web - ต้อง Add to Home Screen + iOS 16.4+
           </p>
         </div>
       </CardContent>
