@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY'; // Will be replaced with actual key
+const VAPID_PUBLIC_KEY = 'BFbhdMwAkLc3OSDoKbBqbzHjsyjx9tQrpN3PgJAj_SeXAC_TLq04JvAH1gU7k0DuigSvT5kokCsMxFZCGDnT-2s';
 
 export const usePushNotification = () => {
   const [isSupported, setIsSupported] = useState(false);
