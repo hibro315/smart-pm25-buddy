@@ -122,22 +122,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="profile" className="space-y-6">
-            {profile ? (
-              <HealthProfileDisplay 
-                profile={{
-                  name: '',
-                  age: String(profile.age),
-                  conditions: profile.chronicConditions || [],
-                  emergencyContact: '',
-                  medications: ''
-                }}
-                onEdit={() => {
-                  // Handle edit - could open a modal or navigate
-                }}
-              />
-            ) : (
-              <EnhancedHealthProfileForm />
-            )}
+            <EnhancedHealthProfileForm />
           </TabsContent>
         </Tabs>
       </div>
