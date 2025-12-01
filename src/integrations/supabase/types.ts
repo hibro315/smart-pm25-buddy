@@ -83,6 +83,48 @@ export type Database = {
         }
         Relationships: []
       }
+      geofence_zones: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          notify_on_enter: boolean
+          notify_on_exit: boolean
+          radius: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name: string
+          notify_on_enter?: boolean
+          notify_on_exit?: boolean
+          radius?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          notify_on_enter?: boolean
+          notify_on_exit?: boolean
+          radius?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_logs: {
         Row: {
           age: number
