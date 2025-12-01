@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { RouteMap } from "@/components/RouteMap";
 import { NearbyHospitals } from "@/components/NearbyHospitals";
+import { UserMenu } from "@/components/UserMenu";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { MapPin, Navigation } from "lucide-react";
 import { Geolocation } from '@capacitor/geolocation';
@@ -32,9 +33,12 @@ const Map = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-2xl font-display font-bold">Air Quality Map</h1>
-          <p className="text-sm text-muted-foreground mt-1">แผนที่คุณภาพอากาศและโรงพยาบาลใกล้เคียง</p>
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Air Quality Map</h1>
+            <p className="text-sm text-muted-foreground mt-1">แผนที่คุณภาพอากาศและโรงพยาบาลใกล้เคียง</p>
+          </div>
+          <UserMenu />
         </div>
       </div>
 

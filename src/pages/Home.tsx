@@ -5,6 +5,7 @@ import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { AirQualityCard } from "@/components/AirQualityCard";
 import { AlertNotification } from "@/components/AlertNotification";
+import { UserMenu } from "@/components/UserMenu";
 import { Activity, MapPin, MessageSquare, Bell, TrendingUp, Wind, Droplets, Thermometer, ChevronRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -35,6 +36,10 @@ const Home = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Hero Section */}
       <div className="relative bg-gradient-primary text-white overflow-hidden">
+        {/* User Menu - Absolute positioned */}
+        <div className="absolute top-4 right-4 z-20">
+          <UserMenu />
+        </div>
         {refreshing && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-white/20 z-10">
             <div className="h-full bg-white animate-pulse w-1/2" />
