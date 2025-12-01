@@ -61,7 +61,9 @@ export const HealthChatbot = ({ pm25, temperature, humidity }: HealthChatbotProp
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -91,6 +93,7 @@ export const HealthChatbot = ({ pm25, temperature, humidity }: HealthChatbotProp
   };
 
   const speak = (text: string) => {
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'th-TH';
@@ -105,7 +108,9 @@ export const HealthChatbot = ({ pm25, temperature, humidity }: HealthChatbotProp
   };
 
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   };
 
