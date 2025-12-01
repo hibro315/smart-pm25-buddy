@@ -15,6 +15,13 @@ export interface EnhancedPHRIInput {
   so2?: number;
   temperature?: number;
   humidity?: number;
+  pressure?: number;
+  wind?: number;
+  nearbyStations?: Array<{
+    name: string;
+    aqi: number;
+    distance: number;
+  }>;
   
   // Personal factors
   age: number;
@@ -53,6 +60,7 @@ export interface EnhancedPHRIResult {
   environmentalScore: number;
   weatherScore: number;
   aqiScore: number;
+  nearbyAreaScore: number;
   personalScore: number;
   behavioralScore: number;
   symptomScore: number;
@@ -98,6 +106,16 @@ export const useEnhancedPHRI = () => {
         if (input.humidity > 80 || input.humidity < 30) weatherScore += 0.3;
         else if (input.humidity > 70 || input.humidity < 40) weatherScore += 0.2;
       }
+      if (input.pressure !== undefined) {
+        if (input.pressure < 1000 || input.pressure > 1025) weatherScore += 0.2;
+      }
+      if (input.wind !== undefined) {
+        // Low wind means poor dispersion of pollutants
+        if (input.wind < 1) weatherScore += 0.3;
+        else if (input.wind < 2) weatherScore += 0.15;
+        // Very high wind can stir up dust
+        else if (input.wind > 10) weatherScore += 0.2;
+      }
 
       // 3. AQI Score (0-1.5 points)
       let aqiScore = 0;
@@ -106,6 +124,22 @@ export const useEnhancedPHRI = () => {
       else if (input.aqi > 150) aqiScore = 1.0;
       else if (input.aqi > 100) aqiScore = 0.7;
       else if (input.aqi > 50) aqiScore = 0.4;
+
+      // 3.5. Nearby Area Score (0-1 points)
+      let nearbyAreaScore = 0;
+      if (input.nearbyStations && input.nearbyStations.length > 0) {
+        const avgNearbyAQI = input.nearbyStations.reduce((sum, station) => sum + station.aqi, 0) / input.nearbyStations.length;
+        const aqiDifference = avgNearbyAQI - input.aqi;
+        
+        // If nearby areas are worse, increase risk
+        if (aqiDifference > 50) nearbyAreaScore += 0.7;
+        else if (aqiDifference > 20) nearbyAreaScore += 0.4;
+        else if (aqiDifference > 0) nearbyAreaScore += 0.2;
+        
+        // Check if all nearby areas are unhealthy
+        const allUnhealthy = input.nearbyStations.every(station => station.aqi > 100);
+        if (allUnhealthy) nearbyAreaScore += 0.3;
+      }
 
       // 4. Personal Score (0-2.5 points)
       let personalScore = 0;
@@ -169,7 +203,7 @@ export const useEnhancedPHRI = () => {
       if (input.outdoorTime < 30) protectiveScore += 0.3;
 
       // Calculate final PHRI (0-10)
-      let phri = environmentalScore + weatherScore + aqiScore + 
+      let phri = environmentalScore + weatherScore + aqiScore + nearbyAreaScore +
                  personalScore + behavioralScore + symptomScore - protectiveScore;
       
       phri = Math.max(0, Math.min(10, phri));
@@ -268,6 +302,7 @@ export const useEnhancedPHRI = () => {
         environmentalScore: Math.round(environmentalScore * 10) / 10,
         weatherScore: Math.round(weatherScore * 10) / 10,
         aqiScore: Math.round(aqiScore * 10) / 10,
+        nearbyAreaScore: Math.round(nearbyAreaScore * 10) / 10,
         personalScore: Math.round(personalScore * 10) / 10,
         behavioralScore: Math.round(behavioralScore * 10) / 10,
         symptomScore: Math.round(symptomScore * 10) / 10,
@@ -289,6 +324,7 @@ export const useEnhancedPHRI = () => {
         environmentalScore: 0,
         weatherScore: 0,
         aqiScore: 0,
+        nearbyAreaScore: 0,
         personalScore: 0,
         behavioralScore: 0,
         symptomScore: 0,

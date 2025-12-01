@@ -28,6 +28,9 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           temperature: 28,
           humidity: 65,
+          pressure: 1013,
+          wind: 0,
+          nearbyStations: [],
           source: 'Fallback'
         }),
         { 
@@ -50,6 +53,9 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           temperature: 28,
           humidity: 65,
+          pressure: 1013,
+          wind: 0,
+          nearbyStations: [],
           source: 'Fallback'
         }),
         { 
@@ -87,6 +93,9 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           temperature: 28,
           humidity: 65,
+          pressure: 1013,
+          wind: 0,
+          nearbyStations: [],
           source: 'Fallback',
           error: 'API temporarily unavailable',
         }),
@@ -118,6 +127,9 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           temperature: 28,
           humidity: 65,
+          pressure: 1013,
+          wind: 0,
+          nearbyStations: [],
           source: 'Fallback',
           error: 'API returned invalid data',
         }),
@@ -149,13 +161,45 @@ serve(async (req) => {
     // Extract temperature and humidity from AQICN weather data
     const temperature = Math.round(iaqi.t?.v || 28);
     const humidity = Math.round(iaqi.h?.v || 65);
+    const pressure = Math.round(iaqi.p?.v || 1013);
+    const wind = Math.round(iaqi.w?.v || 0);
     
     // Parse timestamp from AQICN
     const timestamp = data.time?.iso || new Date().toISOString();
     
+    // Fetch nearby stations for comparison (within ~5km radius)
+    let nearbyStations = [];
+    try {
+      const searchUrl = `https://api.waqi.info/v2/map/bounds/?latlng=${latitude-0.05},${longitude-0.05},${latitude+0.05},${longitude+0.05}&token=${AQICN_API_KEY}`;
+      const searchResponse = await fetch(searchUrl, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      });
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        if (searchData.status === 'ok' && searchData.data) {
+          nearbyStations = searchData.data
+            .filter((station: any) => station.uid !== data.idx)
+            .slice(0, 3)
+            .map((station: any) => ({
+              name: station.station?.name || 'Unknown',
+              aqi: station.aqi || 0,
+              distance: calculateDistance(
+                latitude, longitude,
+                station.lat || latitude, station.lon || longitude
+              )
+            }));
+        }
+      }
+    } catch (error) {
+      console.log('Could not fetch nearby stations:', error);
+    }
+    
     console.log('Processed data:', { 
       pm25, pm10, no2, o3, so2, co, aqi,
-      location, temperature, humidity 
+      location, temperature, humidity, pressure, wind,
+      nearbyStationsCount: nearbyStations.length
     });
     
     return new Response(
@@ -171,6 +215,9 @@ serve(async (req) => {
         timestamp,
         temperature,
         humidity,
+        pressure,
+        wind,
+        nearbyStations,
         source: 'AQICN'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -192,6 +239,9 @@ serve(async (req) => {
         timestamp: new Date().toISOString(),
         temperature: 28,
         humidity: 65,
+        pressure: 1013,
+        wind: 0,
+        nearbyStations: [],
         source: 'Fallback',
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
@@ -202,3 +252,15 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to calculate distance between two coordinates
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return Math.round(R * c * 10) / 10; // Round to 1 decimal
+}

@@ -2,6 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wind, AlertTriangle } from "lucide-react";
 
+interface NearbyStation {
+  name: string;
+  aqi: number;
+  distance: number;
+}
+
 interface AirQualityCardProps {
   pm25: number;
   pm10?: number;
@@ -10,10 +16,15 @@ interface AirQualityCardProps {
   aqi?: number;
   location: string;
   timestamp?: string;
+  temperature?: number;
+  humidity?: number;
+  pressure?: number;
+  wind?: number;
+  nearbyStations?: NearbyStation[];
   source?: string;
 }
 
-export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, source }: AirQualityCardProps) => {
+export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, temperature, humidity, pressure, wind, nearbyStations, source }: AirQualityCardProps) => {
   const getAQILevel = (value: number) => {
     if (value <= 25) return { level: "ดี", color: "bg-aqi-good", textColor: "text-aqi-good" };
     if (value <= 37) return { level: "ปานกลาง", color: "bg-aqi-moderate", textColor: "text-aqi-moderate" };
@@ -84,6 +95,39 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
           />
         </div>
 
+        {/* Weather conditions */}
+        {(temperature !== undefined || humidity !== undefined || pressure !== undefined || wind !== undefined) && (
+          <div className="pt-3 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">สภาพอากาศ</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {temperature !== undefined && (
+                <div className="bg-muted/50 rounded p-2">
+                  <div className="text-muted-foreground">🌡️ อุณหภูมิ</div>
+                  <div className="font-semibold">{temperature}°C</div>
+                </div>
+              )}
+              {humidity !== undefined && (
+                <div className="bg-muted/50 rounded p-2">
+                  <div className="text-muted-foreground">💧 ความชื้น</div>
+                  <div className="font-semibold">{humidity}%</div>
+                </div>
+              )}
+              {pressure !== undefined && (
+                <div className="bg-muted/50 rounded p-2">
+                  <div className="text-muted-foreground">📊 ความกดอากาศ</div>
+                  <div className="font-semibold">{pressure} hPa</div>
+                </div>
+              )}
+              {wind !== undefined && (
+                <div className="bg-muted/50 rounded p-2">
+                  <div className="text-muted-foreground">💨 ลม</div>
+                  <div className="font-semibold">{wind} m/s</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Additional pollutants info */}
         {(pm10 !== undefined || no2 !== undefined || o3 !== undefined) && (
           <div className="pt-3 border-t border-border">
@@ -107,6 +151,26 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
                   <div className="font-semibold">{o3} µg/m³</div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Nearby stations comparison */}
+        {nearbyStations && nearbyStations.length > 0 && (
+          <div className="pt-3 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">พื้นที่ใกล้เคียง</p>
+            <div className="space-y-2">
+              {nearbyStations.map((station, index) => (
+                <div key={index} className="flex items-center justify-between text-xs bg-muted/30 rounded p-2">
+                  <div className="flex-1">
+                    <div className="font-medium truncate">{station.name}</div>
+                    <div className="text-muted-foreground">{station.distance} km</div>
+                  </div>
+                  <div className={`font-semibold ${getAQILevel(station.aqi).textColor}`}>
+                    AQI {station.aqi}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

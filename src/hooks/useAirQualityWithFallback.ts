@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { getPosition } from '@/utils/geolocation';
 
+interface NearbyStation {
+  name: string;
+  aqi: number;
+  distance: number;
+}
+
 interface AirQualityData {
   pm25: number;
   pm10: number;
@@ -14,6 +20,10 @@ interface AirQualityData {
   location: string;
   temperature?: number;
   humidity?: number;
+  pressure?: number;
+  wind?: number;
+  nearbyStations?: NearbyStation[];
+  source?: string;
   timestamp: string;
 }
 
@@ -104,6 +114,10 @@ export const useAirQualityWithFallback = () => {
           location: freshData.location || 'Unknown',
           temperature: freshData.temperature,
           humidity: freshData.humidity,
+          pressure: freshData.pressure,
+          wind: freshData.wind,
+          nearbyStations: freshData.nearbyStations,
+          source: freshData.source,
           timestamp: new Date().toISOString(),
         };
 

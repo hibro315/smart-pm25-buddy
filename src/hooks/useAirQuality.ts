@@ -5,6 +5,12 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { useToast } from '@/hooks/use-toast';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
+interface NearbyStation {
+  name: string;
+  aqi: number;
+  distance: number;
+}
+
 interface AirQualityData {
   pm25: number;
   pm10?: number;
@@ -17,6 +23,9 @@ interface AirQualityData {
   timestamp: string;
   temperature: number;
   humidity: number;
+  pressure?: number;
+  wind?: number;
+  nearbyStations?: NearbyStation[];
   source?: string;
 }
 
