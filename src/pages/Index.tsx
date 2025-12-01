@@ -134,13 +134,13 @@ const Index = () => {
     if (data && userProfile) {
       try {
         const symptoms: string[] = [];
-        if (todaySymptoms.cough) symptoms.push('cough');
-        if (todaySymptoms.sneeze) symptoms.push('sneeze');
-        if (todaySymptoms.wheezing) symptoms.push('wheezing');
-        if (todaySymptoms.chest_tightness) symptoms.push('chest tightness');
-        if (todaySymptoms.shortness_of_breath) symptoms.push('shortness of breath');
-        if (todaySymptoms.eye_irritation) symptoms.push('eye irritation');
-        if (todaySymptoms.fatigue) symptoms.push('fatigue');
+        if (todaySymptoms?.cough) symptoms.push('cough');
+        if (todaySymptoms?.sneeze) symptoms.push('sneeze');
+        if (todaySymptoms?.wheezing) symptoms.push('wheezing');
+        if (todaySymptoms?.chest_tightness) symptoms.push('chest tightness');
+        if (todaySymptoms?.shortness_of_breath) symptoms.push('shortness of breath');
+        if (todaySymptoms?.eye_irritation) symptoms.push('eye irritation');
+        if (todaySymptoms?.fatigue) symptoms.push('fatigue');
 
         const result = calculateEnhancedPHRI({
           pm25: data.pm25,
