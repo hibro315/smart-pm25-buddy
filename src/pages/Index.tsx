@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AirQualityCard } from "@/components/AirQualityCard";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
@@ -37,9 +37,9 @@ import { useBackgroundSync } from "@/hooks/useBackgroundSync";
 import { Geolocation } from '@capacitor/geolocation';
 
 const Index = () => {
-  const navigate = useNavigate();
   const [authUser, setAuthUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
   const { data, loading, error, usingFallback, refetch } = useAirQualityWithFallback();
   const { 
     isSupported: pushSupported, 
@@ -70,7 +70,7 @@ const Index = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        navigate('/auth');
+        setShouldRedirect(true);
       } else {
         setAuthUser(session.user);
       }
@@ -79,14 +79,15 @@ const Index = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
-        navigate('/auth');
+        setShouldRedirect(true);
       } else {
         setAuthUser(session.user);
+        setShouldRedirect(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   // Auto-enable push notifications for background monitoring
   useEffect(() => {
@@ -146,6 +147,11 @@ const Index = () => {
       });
     }
   };
+
+  // Redirect to auth if not authenticated
+  if (shouldRedirect) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (authLoading) {
     return (
