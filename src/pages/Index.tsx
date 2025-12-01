@@ -15,6 +15,7 @@ import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
+import { WeeklyHealthSummary } from "@/components/WeeklyHealthSummary";
 import { SymptomQuickLog } from "@/components/SymptomQuickLog";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
@@ -453,6 +454,7 @@ const Index = () => {
               currentPM25={pm25Value}
               currentLocation={location}
             />
+            <WeeklyHealthSummary />
             <PHRITrendChart />
             <HealthLogsHistory />
           </TabsContent>
