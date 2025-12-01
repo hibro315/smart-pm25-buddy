@@ -178,13 +178,17 @@ export const PHRICalculator = ({
 
             <div className="space-y-2">
               <Label htmlFor="gender">เพศ (ไม่บังคับ)</Label>
-              <Input
+              <select
                 id="gender"
-                type="text"
-                value={gender}
+                className="border rounded-md p-2 font-medium w-full"
+                value={gender || ''}
                 onChange={(e) => setGender(e.target.value)}
-                placeholder="เช่น ชาย/หญิง"
-              />
+              >
+                <option value="">–</option>
+                <option value="male">ชาย</option>
+                <option value="female">หญิง</option>
+                <option value="other">อื่น ๆ</option>
+              </select>
             </div>
           </div>
 
