@@ -124,11 +124,11 @@ export const PushNotificationSettings = () => {
         <div className="rounded-lg bg-primary/5 p-4 space-y-1">
           <p className="text-sm font-medium">ℹ️ ความเข้ากันได้</p>
           <p className="text-xs text-muted-foreground">
-            ✅ Native App (Android/iOS) - รองรับเต็มรูปแบบ
+            ✅ Chrome/Edge (Android) - รองรับเต็มรูปแบบ
             <br />
-            ✅ Chrome/Edge (Android Web) - รองรับเต็มรูปแบบ
+            ✅ แจ้งเตือนแม้ปิดแอป (Service Worker)
             <br />
-            ⚠️ iOS Web - ต้อง Add to Home Screen + iOS 16.4+
+            ⚠️ iOS - ต้อง Add to Home Screen + iOS 16.4+
           </p>
         </div>
       </CardContent>
