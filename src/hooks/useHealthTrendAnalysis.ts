@@ -30,18 +30,27 @@ export const useHealthTrendAnalysis = () => {
       // Refresh session to get a fresh token
       const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (refreshError || !session) {
+      if (refreshError || !session?.access_token) {
         toast({
           title: 'กรุณาเข้าสู่ระบบใหม่',
           description: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
           variant: 'destructive',
         });
         setLoading(false);
+        // Redirect to auth page after a delay
+        setTimeout(() => {
+          window.location.href = '/auth';
+        }, 2000);
         return;
       }
 
+      console.log("✅ Session refreshed for trend analysis");
+
       const { data, error } = await supabase.functions.invoke('health-trend-analysis', {
-        body: { sessionId, daysBack }
+        body: { sessionId, daysBack },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
