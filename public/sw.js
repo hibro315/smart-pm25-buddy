@@ -347,55 +347,83 @@ const getAQIMessage = (aqi) => {
   }
 };
 
-// Show notification with vibration based on AQI
+// Show Rich Notification (Shopee-style) with vibration based on AQI
 const showAirQualityNotification = async (aqi, location, reason) => {
   try {
     const aqiInfo = getAQIMessage(aqi);
     let title = '';
     let body = '';
+    let icon = '/icon-192.png';
+    let image = null;
     let vibrate = [300, 100, 300];
     let requireInteraction = false;
     
+    // Determine rich notification content based on AQI severity
     if (aqi > 200) {
       title = '🚨 อันตราย! คุณภาพอากาศแย่มาก';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
-      vibrate = [500, 200, 500, 200, 500];
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n❌ ห้ามออกนอกอาคาร\n😷 สวมหน้ากาก N95\n🏠 อยู่ในที่ร่มปิดหน้าต่าง`;
+      vibrate = [500, 200, 500, 200, 500, 200, 500];
       requireInteraction = true;
+      icon = '/icon-512.png';
     } else if (aqi > 150) {
       title = '⚠️ แจ้งเตือน: อากาศไม่ดีต่อสุขภาพ';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
-      vibrate = [300, 100, 300, 100, 300];
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n⏱️ จำกัดเวลานอกอาคาร\n😷 สวมหน้ากากทุกครั้ง\n🚫 หลีกเลี่ยงออกกำลังกาย`;
+      vibrate = [400, 150, 400, 150, 400, 150, 400];
       requireInteraction = true;
+      icon = '/icon-512.png';
     } else if (aqi > 100) {
       title = '⚠️ อากาศไม่ดีสำหรับกลุ่มเสี่ยง';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n😷 แนะนำสวมหน้ากาก\n⚠️ กลุ่มเสี่ยงควรระมัดระวัง`;
+      vibrate = [300, 100, 300, 100, 300];
     } else if (reason === 'location_change') {
       title = '📍 เปลี่ยนพื้นที่';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n✅ คุณภาพอากาศ${aqiInfo.category}`;
+      vibrate = [200, 100, 200];
     } else if (reason === 'aqi_spike') {
       title = '📈 คุณภาพอากาศเปลี่ยนแปลง';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n${location}`;
-      vibrate = [300, 100, 300, 100, 300];
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n⚠️ ค่าฝุ่นเพิ่มขึ้นอย่างรวดเร็ว\n😷 ควรสวมหน้ากาก`;
+      vibrate = [300, 100, 300, 100, 300, 100, 300];
     } else {
       title = `AQI ${aqi} - ${aqiInfo.category}`;
-      body = `${aqiInfo.message}\n${location}`;
+      body = `${aqiInfo.message}\n📍 ${location}\n\n✅ ปลอดภัยสำหรับกิจกรรมกลางแจ้ง`;
     }
     
+    // Create rich notification with Shopee-style formatting
     await sw.registration.showNotification(title, {
       body,
-      icon: '/icon-192.png',
+      icon,
       badge: '/icon-192.png',
+      image,
       tag: NOTIFICATION_TAG,
       vibrate,
       requireInteraction,
-      data: { aqi, location, category: aqiInfo.category, reason, timestamp: Date.now() },
+      silent: false,
+      renotify: true,
+      timestamp: Date.now(),
+      data: { 
+        aqi, 
+        location, 
+        category: aqiInfo.category, 
+        reason,
+        color: aqiInfo.color,
+        timestamp: Date.now(),
+        url: '/'
+      },
       actions: [
-        { action: 'view', title: 'ดูรายละเอียด' },
-        { action: 'dismiss', title: 'ปิด' }
+        { action: 'view', title: '📊 ดูรายละเอียด', icon: '/icon-192.png' },
+        { action: 'map', title: '🗺️ ดูแผนที่', icon: '/icon-192.png' },
+        { action: 'dismiss', title: '❌ ปิด' }
       ]
     });
     
-    console.log('✅ Notification shown:', { aqi, location, category: aqiInfo.category, reason });
+    // Additional vibration for critical alerts
+    if (aqi > 150 && 'vibrate' in navigator) {
+      setTimeout(() => {
+        navigator.vibrate(vibrate);
+      }, 1000);
+    }
+    
+    console.log('✅ Rich notification shown:', { aqi, location, category: aqiInfo.category, reason, vibrate });
   } catch (error) {
     console.error('Error showing notification:', error);
   }
@@ -510,53 +538,88 @@ sw.addEventListener('periodicsync', (event) => {
   }
 });
 
-// Handle notification clicks
+// Handle notification clicks with rich actions
 sw.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Notification clicked:', event.action);
+  console.log('🔔 Notification clicked:', event.action, event.notification.data);
+  
+  const data = event.notification.data || {};
+  
+  // Trigger vibration on click for better UX
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200]);
+  }
   
   event.notification.close();
   
-  if (event.action === 'dismiss') {
+  // Handle different action buttons
+  if (event.action === 'view') {
+    // Open main page with AQI data
+    event.waitUntil(
+      sw.clients.openWindow('/?aqi=' + (data.aqi || ''))
+    );
+  } else if (event.action === 'map') {
+    // Open map view
+    event.waitUntil(
+      sw.clients.openWindow('/?view=map')
+    );
+  } else if (event.action === 'dismiss') {
+    // Just close, no action
+    console.log('Notification dismissed by user');
     return;
-  }
-  
-  // Open the app when notification is clicked
-  event.waitUntil(
-    sw.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // If app is already open, focus it
-        for (const client of clientList) {
-          if (client.url.includes(sw.registration.scope) && 'focus' in client) {
-            return client.focus();
+  } else {
+    // Default click (no action button) - open the app
+    event.waitUntil(
+      sw.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clientList) => {
+          // If app is already open, focus it
+          for (const client of clientList) {
+            if (client.url.includes(sw.registration.scope) && 'focus' in client) {
+              return client.focus();
+            }
           }
-        }
-        // Otherwise open a new window
-        if (sw.clients.openWindow) {
-          return sw.clients.openWindow('/');
-        }
-      })
-  );
+          // Otherwise open a new window
+          if (sw.clients.openWindow) {
+            return sw.clients.openWindow(data.url || '/');
+          }
+        })
+    );
+  }
 });
 
-// Handle push notifications from server
+// Handle push notifications from server (Rich Shopee-style)
 sw.addEventListener('push', (event) => {
   console.log('📬 Push notification received:', event);
   
   const data = event.data?.json() || {};
   const title = data.title || '🌫️ แจ้งเตือนคุณภาพอากาศ';
+  const pm25 = data.data?.pm25 || 0;
+  
+  // Create rich notification options
   const options = {
     body: data.body || 'คุณภาพอากาศเปลี่ยนแปลง',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: 'push-notification',
-    vibrate: [300, 100, 300, 100, 300], // Vibration pattern
-    requireInteraction: data.requireInteraction || false,
+    icon: data.icon || (pm25 > 150 ? '/icon-512.png' : '/icon-192.png'),
+    badge: data.badge || '/icon-192.png',
+    image: data.image || null,
+    tag: data.tag || 'push-notification',
+    vibrate: data.vibrate || [400, 150, 400, 150, 400],
+    requireInteraction: data.requireInteraction || pm25 > 150,
+    silent: false,
+    renotify: true,
+    timestamp: data.timestamp || Date.now(),
     data: data.data || {},
-    actions: [
-      { action: 'view', title: 'ดูรายละเอียด' },
-      { action: 'dismiss', title: 'ปิด' }
+    actions: data.actions || [
+      { action: 'view', title: '📊 ดูรายละเอียด', icon: '/icon-192.png' },
+      { action: 'map', title: '🗺️ ดูแผนที่', icon: '/icon-192.png' },
+      { action: 'dismiss', title: '❌ ปิด' }
     ]
   };
+  
+  // Additional vibration for critical alerts
+  if (pm25 > 150 && 'vibrate' in navigator) {
+    setTimeout(() => {
+      navigator.vibrate(options.vibrate);
+    }, 500);
+  }
   
   event.waitUntil(
     sw.registration.showNotification(title, options)
