@@ -27,26 +27,13 @@ export const useHealthTrendAnalysis = () => {
   const analyzeTrend = async (sessionId?: string, daysBack: number = 7) => {
     setLoading(true);
     try {
-      // Check and refresh session if needed
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Refresh session to get a fresh token
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (sessionError || !session) {
-        toast({
-          title: 'กรุณาเข้าสู่ระบบ',
-          description: 'คุณต้องเข้าสู่ระบบก่อนใช้ฟีเจอร์นี้',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Verify the session is still valid
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
+      if (refreshError || !session) {
         toast({
           title: 'กรุณาเข้าสู่ระบบใหม่',
-          description: 'เซสชันของคุณหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+          description: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
           variant: 'destructive',
         });
         setLoading(false);
