@@ -6,7 +6,7 @@ import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { WeeklyHealthSummary } from "@/components/WeeklyHealthSummary";
 import { HealthTrendAnalysis } from "@/components/HealthTrendAnalysis";
-import { SymptomQuickLog } from "@/components/SymptomQuickLog";
+import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
 import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
@@ -77,8 +77,8 @@ const Dashboard = () => {
         {/* Quick PHRI Display */}
         <PHRIDisplay result={phriResult} />
 
-        {/* Symptom Quick Log */}
-        <SymptomQuickLog />
+        {/* Enhanced Symptom Log */}
+        <EnhancedSymptomLog />
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="trends" className="w-full">

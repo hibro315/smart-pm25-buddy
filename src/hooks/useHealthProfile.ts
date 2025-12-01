@@ -5,25 +5,46 @@ import { healthProfileSchema, type HealthProfileInput, sanitizeArray } from '@/l
 import { z } from 'zod';
 
 export interface HealthProfile {
-  userId?: string;
-  chronicConditions: string[];
-  dustSensitivity: 'low' | 'medium' | 'high';
-  physicalActivity: 'sedentary' | 'moderate' | 'active';
-  hasAirPurifier: boolean;
+  // ข้อมูลส่วนตัวพื้นฐาน
+  name?: string;
   age: number;
-  gender: string;
+  gender: 'male' | 'female' | 'other';
+  height?: number;
   weight?: number;
+  occupation?: string;
+  workEnvironment?: 'outdoor' | 'indoor' | 'mixed';
+  location?: string;
+  
+  // ประวัติสุขภาพพื้นฐาน
+  chronicConditions: string[];
+  allergies?: string;
+  immunoCompromised?: boolean;
+  smokingStatus?: 'non_smoker' | 'occasional' | 'regular';
+  alcoholConsumption?: 'none' | 'occasional' | 'regular';
+  exerciseFrequency?: number;
+  
+  // ปัจจัยเสี่ยงด้านคุณภาพอากาศ
+  dustSensitivity: 'low' | 'medium' | 'high';
+  hasAirPurifier: boolean;
+  maskUsage?: 'none' | 'regular' | 'n95' | 'kf94';
+  outdoorTimeDaily?: number;
+  physicalActivity: 'sedentary' | 'moderate' | 'active';
+  
+  // Metadata
+  userId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
 const DEFAULT_PROFILE: HealthProfile = {
+  age: 30,
+  gender: 'male',
   chronicConditions: [],
   dustSensitivity: 'medium',
   physicalActivity: 'moderate',
   hasAirPurifier: false,
-  age: 30,
-  gender: 'other',
+  smokingStatus: 'non_smoker',
+  alcoholConsumption: 'none',
 };
 
 export const useHealthProfile = () => {
