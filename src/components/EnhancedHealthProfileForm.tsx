@@ -18,7 +18,8 @@ const CHRONIC_CONDITIONS = [
   { id: 'heart_disease', label: 'โรคหัวใจ' },
   { id: 'diabetes', label: 'เบาหวาน' },
   { id: 'hypertension', label: 'ความดันโลหิตสูง' },
-  { id: 'other', label: 'อื่นๆ' },
+  { id: 'none', label: 'ไม่มีโรคประจำตัว' },
+  { id: 'other', label: 'อื่นๆ (ระบุ)' },
 ];
 
 const MASK_TYPES = [
@@ -43,16 +44,22 @@ export const EnhancedHealthProfileForm = () => {
   const [gender, setGender] = useState<'male' | 'female' | 'other'>(profile?.gender || 'male');
   const [height, setHeight] = useState(profile?.height || 0);
   const [weight, setWeight] = useState(profile?.weight || 0);
-  const [occupation, setOccupation] = useState(profile?.occupation || '');
+  const [occupation, setOccupation] = useState<'indoor' | 'outdoor' | 'student' | 'other'>(
+    (profile?.workEnvironment as any) || 'indoor'
+  );
+  const [occupationOther, setOccupationOther] = useState('');
   const [workEnvironment, setWorkEnvironment] = useState<'outdoor' | 'indoor' | 'mixed'>(profile?.workEnvironment || 'indoor');
   const [location, setLocation] = useState(profile?.location || '');
   
   const [chronicConditions, setChronicConditions] = useState<string[]>(profile?.chronicConditions || []);
-  const [allergies, setAllergies] = useState(profile?.allergies || '');
-  const [immunoCompromised, setImmunoCompromised] = useState(profile?.immunoCompromised || false);
+  const [chronicConditionsOther, setChronicConditionsOther] = useState('');
+  const [allergyType, setAllergyType] = useState<'none' | 'medicine' | 'food' | 'chemical' | 'other'>('none');
+  const [allergyOther, setAllergyOther] = useState('');
+  const [immunoCompromised, setImmunoCompromised] = useState<'none' | 'past' | 'current'>('none');
   const [smokingStatus, setSmokingStatus] = useState<'non_smoker' | 'occasional' | 'regular'>(profile?.smokingStatus || 'non_smoker');
   const [alcoholConsumption, setAlcoholConsumption] = useState<'none' | 'occasional' | 'regular'>(profile?.alcoholConsumption || 'none');
-  const [exerciseFrequency, setExerciseFrequency] = useState(profile?.exerciseFrequency || 0);
+  const [exerciseFrequency, setExerciseFrequency] = useState<'0' | '1-2' | '3-4' | '5+'>('0');
+  const [outdoorTimeRange, setOutdoorTimeRange] = useState<'<1' | '1-3' | '3-5' | '>5'>('1-3');
   
   const [dustSensitivity, setDustSensitivity] = useState<'low' | 'medium' | 'high'>(profile?.dustSensitivity || 'medium');
   const [hasAirPurifier, setHasAirPurifier] = useState(profile?.hasAirPurifier || false);
@@ -73,15 +80,11 @@ export const EnhancedHealthProfileForm = () => {
       setGender(profile.gender);
       setHeight(profile.height || 0);
       setWeight(profile.weight || 0);
-      setOccupation(profile.occupation || '');
       setWorkEnvironment(profile.workEnvironment || 'indoor');
       setLocation(profile.location || '');
       setChronicConditions(profile.chronicConditions);
-      setAllergies(profile.allergies || '');
-      setImmunoCompromised(profile.immunoCompromised || false);
       setSmokingStatus(profile.smokingStatus || 'non_smoker');
       setAlcoholConsumption(profile.alcoholConsumption || 'none');
-      setExerciseFrequency(profile.exerciseFrequency || 0);
       setDustSensitivity(profile.dustSensitivity);
       setHasAirPurifier(profile.hasAirPurifier);
       setMaskUsage(profile.maskUsage || 'none');
@@ -117,25 +120,41 @@ export const EnhancedHealthProfileForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Convert ranges to approximate values for storage
+    const exerciseFreqValue = exerciseFrequency === '0' ? 0 : exerciseFrequency === '1-2' ? 1.5 : exerciseFrequency === '3-4' ? 3.5 : 5;
+    const outdoorTimeValue = outdoorTimeRange === '<1' ? 30 : outdoorTimeRange === '1-3' ? 120 : outdoorTimeRange === '3-5' ? 240 : 360;
+    
+    // Build allergies string
+    const allergiesText = allergyType === 'none' ? '' : 
+      allergyType === 'other' ? allergyOther :
+      allergyType === 'medicine' ? 'แพ้ยา' :
+      allergyType === 'food' ? 'แพ้อาหาร' :
+      'แพ้สารเคมี';
+    
+    // Build chronic conditions with other text
+    const conditions = chronicConditions.includes('other') && chronicConditionsOther
+      ? [...chronicConditions.filter(c => c !== 'other'), chronicConditionsOther]
+      : chronicConditions;
+    
     await saveProfile({
       name,
       age,
       gender,
       height: height || undefined,
       weight: weight || undefined,
-      occupation: occupation || undefined,
+      occupation: occupation === 'other' ? occupationOther : occupation,
       workEnvironment: workEnvironment || undefined,
       location: location || undefined,
-      chronicConditions,
-      allergies: allergies || undefined,
-      immunoCompromised,
+      chronicConditions: conditions,
+      allergies: allergiesText || undefined,
+      immunoCompromised: immunoCompromised === 'current',
       smokingStatus,
       alcoholConsumption,
-      exerciseFrequency,
+      exerciseFrequency: exerciseFreqValue,
       dustSensitivity,
       hasAirPurifier,
       maskUsage,
-      outdoorTimeDaily,
+      outdoorTimeDaily: outdoorTimeValue,
       physicalActivity,
     });
   };
@@ -242,31 +261,33 @@ export const EnhancedHealthProfileForm = () => {
             </div>
 
             <div>
-              <Label htmlFor="occupation">อาชีพ</Label>
-              <Input
-                id="occupation"
-                value={occupation}
-                onChange={(e) => setOccupation(e.target.value)}
-                placeholder="เช่น พนักงานบริษัท, นักเรียน"
-              />
-            </div>
-
-            <div>
-              <Label>ลักษณะการทำงาน</Label>
-              <RadioGroup value={workEnvironment} onValueChange={(v) => setWorkEnvironment(v as any)}>
+              <Label>อาชีพ</Label>
+              <RadioGroup value={occupation} onValueChange={(v) => setOccupation(v as any)}>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="indoor" id="indoor" />
-                  <Label htmlFor="indoor">ในอาคาร</Label>
+                  <RadioGroupItem value="indoor" id="occ_indoor" />
+                  <Label htmlFor="occ_indoor">ทำงานในอาคาร</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="outdoor" id="outdoor" />
-                  <Label htmlFor="outdoor">กลางแจ้ง</Label>
+                  <RadioGroupItem value="outdoor" id="occ_outdoor" />
+                  <Label htmlFor="occ_outdoor">ทำงานกลางแจ้ง</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="mixed" id="mixed" />
-                  <Label htmlFor="mixed">ทั้งสองแบบ</Label>
+                  <RadioGroupItem value="student" id="occ_student" />
+                  <Label htmlFor="occ_student">นักเรียน/นักศึกษา</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="other" id="occ_other" />
+                  <Label htmlFor="occ_other">อื่น ๆ</Label>
                 </div>
               </RadioGroup>
+              {occupation === 'other' && (
+                <Input
+                  className="mt-2"
+                  value={occupationOther}
+                  onChange={(e) => setOccupationOther(e.target.value)}
+                  placeholder="ระบุอาชีพ"
+                />
+              )}
             </div>
 
             <div>
@@ -283,7 +304,7 @@ export const EnhancedHealthProfileForm = () => {
           {/* Tab 2: ประวัติสุขภาพพื้นฐาน */}
           <TabsContent value="health" className="space-y-4 mt-6">
             <div>
-              <Label className="mb-3 block">โรคประจำตัว</Label>
+              <Label className="mb-3 block">โรคประจำตัว (เลือกได้หลายข้อ)</Label>
               <div className="grid grid-cols-2 gap-3">
                 {CHRONIC_CONDITIONS.map((condition) => (
                   <div key={condition.id} className="flex items-center space-x-2">
@@ -298,28 +319,66 @@ export const EnhancedHealthProfileForm = () => {
                   </div>
                 ))}
               </div>
+              {chronicConditions.includes('other') && (
+                <Input
+                  className="mt-2"
+                  value={chronicConditionsOther}
+                  onChange={(e) => setChronicConditionsOther(e.target.value)}
+                  placeholder="ระบุโรคประจำตัวอื่น ๆ"
+                />
+              )}
             </div>
 
             <div>
-              <Label htmlFor="allergies">ประวัติการแพ้ยา/อาหาร</Label>
-              <Textarea
-                id="allergies"
-                value={allergies}
-                onChange={(e) => setAllergies(e.target.value)}
-                placeholder="เช่น แพ้เพนิซิลิน, แพ้กุ้ง"
-                rows={3}
-              />
+              <Label>ประวัติการแพ้ยา/อาหาร</Label>
+              <RadioGroup value={allergyType} onValueChange={(v) => setAllergyType(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="allergy_none" />
+                  <Label htmlFor="allergy_none">ไม่แพ้</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="medicine" id="allergy_medicine" />
+                  <Label htmlFor="allergy_medicine">แพ้ยา</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="food" id="allergy_food" />
+                  <Label htmlFor="allergy_food">แพ้อาหาร</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="chemical" id="allergy_chemical" />
+                  <Label htmlFor="allergy_chemical">แพ้สารเคมี</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="other" id="allergy_other" />
+                  <Label htmlFor="allergy_other">อื่น ๆ</Label>
+                </div>
+              </RadioGroup>
+              {allergyType === 'other' && (
+                <Input
+                  className="mt-2"
+                  value={allergyOther}
+                  onChange={(e) => setAllergyOther(e.target.value)}
+                  placeholder="ระบุอาการแพ้"
+                />
+              )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="immunoCompromised"
-                checked={immunoCompromised}
-                onCheckedChange={(checked) => setImmunoCompromised(checked as boolean)}
-              />
-              <Label htmlFor="immunoCompromised" className="font-normal cursor-pointer">
-                มีภาวะภูมิคุ้มกันบกพร่อง
-              </Label>
+            <div>
+              <Label>ภาวะภูมิคุ้มกันอ่อนแอ</Label>
+              <RadioGroup value={immunoCompromised} onValueChange={(v) => setImmunoCompromised(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="immune_none" />
+                  <Label htmlFor="immune_none">ไม่มี</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="past" id="immune_past" />
+                  <Label htmlFor="immune_past">เคยมี</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="current" id="immune_current" />
+                  <Label htmlFor="immune_current">มีปัจจุบัน</Label>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
@@ -359,15 +418,25 @@ export const EnhancedHealthProfileForm = () => {
             </div>
 
             <div>
-              <Label htmlFor="exerciseFrequency">การออกกำลังกาย (ครั้ง/สัปดาห์)</Label>
-              <Input
-                id="exerciseFrequency"
-                type="number"
-                value={exerciseFrequency}
-                onChange={(e) => setExerciseFrequency(Number(e.target.value))}
-                min={0}
-                max={30}
-              />
+              <Label>การออกกำลังกายต่อสัปดาห์</Label>
+              <RadioGroup value={exerciseFrequency} onValueChange={(v) => setExerciseFrequency(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="0" id="exercise_0" />
+                  <Label htmlFor="exercise_0">0 ครั้ง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="1-2" id="exercise_1_2" />
+                  <Label htmlFor="exercise_1_2">1-2 ครั้ง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="3-4" id="exercise_3_4" />
+                  <Label htmlFor="exercise_3_4">3-4 ครั้ง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="5+" id="exercise_5plus" />
+                  <Label htmlFor="exercise_5plus">5 ครั้งขึ้นไป</Label>
+                </div>
+              </RadioGroup>
             </div>
           </TabsContent>
 
@@ -473,15 +542,25 @@ export const EnhancedHealthProfileForm = () => {
             </div>
 
             <div>
-              <Label htmlFor="outdoorTimeDaily">เวลาอยู่กลางแจ้งต่อวัน (นาที)</Label>
-              <Input
-                id="outdoorTimeDaily"
-                type="number"
-                value={outdoorTimeDaily}
-                onChange={(e) => setOutdoorTimeDaily(Number(e.target.value))}
-                min={0}
-                max={1440}
-              />
+              <Label>อยู่กลางแจ้งเฉลี่ยต่อวัน</Label>
+              <RadioGroup value={outdoorTimeRange} onValueChange={(v) => setOutdoorTimeRange(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="<1" id="outdoor_less1" />
+                  <Label htmlFor="outdoor_less1">น้อยกว่า 1 ชม.</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="1-3" id="outdoor_1_3" />
+                  <Label htmlFor="outdoor_1_3">1-3 ชม.</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="3-5" id="outdoor_3_5" />
+                  <Label htmlFor="outdoor_3_5">3-5 ชม.</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value=">5" id="outdoor_more5" />
+                  <Label htmlFor="outdoor_more5">มากกว่า 5 ชม.</Label>
+                </div>
+              </RadioGroup>
             </div>
           </TabsContent>
 
