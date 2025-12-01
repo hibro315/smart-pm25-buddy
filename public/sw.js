@@ -15,11 +15,11 @@ const sw = self;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-// Runtime caching for IQAir API
+// Runtime caching for AQICN API
 registerRoute(
-  ({ url }) => url.origin === 'http://api.airvisual.com' || url.hostname === 'api.airvisual.com',
+  ({ url }) => url.origin === 'https://api.waqi.info' || url.hostname === 'api.waqi.info',
   new NetworkFirst({
-    cacheName: 'iqair-cache',
+    cacheName: 'aqicn-cache',
     plugins: [
       new ExpirationPlugin({
         maxEntries: 10,
