@@ -155,18 +155,18 @@ export const useHealthProfile = () => {
       // Validate with zod schema
       const validatedProfile = healthProfileSchema.parse(sanitizedProfile);
 
-      // Save to localStorage as backup
+      // ALWAYS save to localStorage first - this is guaranteed to work
       localStorage.setItem('healthProfile', JSON.stringify(validatedProfile));
       setProfile(validatedProfile as HealthProfile);
 
-      // Save to Supabase if user is authenticated
+      // Try to save to Supabase Cloud (but don't fail if it doesn't work)
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
         console.warn('Not authenticated, profile saved locally only');
         toast({
-          title: 'บันทึกโปรไฟล์สำเร็จ',
-          description: 'ข้อมูลถูกบันทึกในเครื่องของคุณ',
+          title: '✅ บันทึกโปรไฟล์สำเร็จ',
+          description: 'ข้อมูลถูกบันทึกในเครื่องของคุณแล้ว',
         });
         return true;
       }
@@ -195,18 +195,33 @@ export const useHealthProfile = () => {
         physical_activity: validatedProfile.physicalActivity,
       };
 
-      const { error: dbError } = await supabase
-        .from('health_profiles')
-        .upsert(dbProfile, {
-          onConflict: 'user_id'
+      // Try cloud sync but don't fail the whole operation if it doesn't work
+      try {
+        const { error: dbError } = await supabase
+          .from('health_profiles')
+          .upsert(dbProfile, {
+            onConflict: 'user_id'
+          });
+
+        if (dbError) {
+          console.warn('Cloud sync failed:', dbError);
+          toast({
+            title: '✅ บันทึกโปรไฟล์สำเร็จ',
+            description: 'ข้อมูลถูกบันทึกในเครื่องของคุณแล้ว (ยังไม่ได้ซิงค์กับ Cloud)',
+          });
+        } else {
+          toast({
+            title: '✅ บันทึกโปรไฟล์สำเร็จ',
+            description: 'ข้อมูลสุขภาพของคุณถูกบันทึกแล้ว',
+          });
+        }
+      } catch (cloudError) {
+        console.warn('Cloud sync error:', cloudError);
+        toast({
+          title: '✅ บันทึกโปรไฟล์สำเร็จ',
+          description: 'ข้อมูลถูกบันทึกในเครื่องของคุณแล้ว',
         });
-
-      if (dbError) throw dbError;
-
-      toast({
-        title: 'บันทึกโปรไฟล์สำเร็จ',
-        description: 'ข้อมูลสุขภาพของคุณถูกบันทึกใน Cloud แล้ว',
-      });
+      }
 
       return true;
     } catch (error) {
