@@ -152,26 +152,13 @@ export const HealthChatbotEnhanced = ({
     let assistantContent = "";
 
     try {
-      // Get current session and verify user
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Refresh session to get a fresh token
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (sessionError || !session) {
+      if (refreshError || !session) {
         toast({
-          title: "กรุณาเข้าสู่ระบบ",
-          description: "คุณต้องเข้าสู่ระบบก่อนใช้งานแชทบอท",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Verify the user is still valid
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        toast({
-          title: "เซสชันหมดอายุ",
-          description: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
+          title: "กรุณาเข้าสู่ระบบใหม่",
+          description: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
           variant: "destructive",
         });
         setIsLoading(false);
