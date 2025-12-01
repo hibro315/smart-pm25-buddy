@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Mic, MicOff, Volume2, VolumeX, Bot, User, Stethoscope, Heart, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -150,6 +151,13 @@ export const HealthChatbotEnhanced = ({
     let assistantContent = "";
 
     try {
+      // Get current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+      }
+
       // Include user health profile in context
       const contextInfo = profile ? `\n\nข้อมูลสุขภาพผู้ใช้:\n- อายุ: ${profile.age} ปี\n- เพศ: ${profile.gender}\n- โรคประจำตัว: ${profile.chronicConditions.length > 0 ? profile.chronicConditions.join(', ') : 'ไม่มี'}\n- ความไวต่อฝุ่น: ${profile.dustSensitivity}\n- กิจกรรมทางกาย: ${profile.physicalActivity}` : '';
 
@@ -159,7 +167,7 @@ export const HealthChatbotEnhanced = ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             messages: [
