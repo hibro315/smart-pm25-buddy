@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_symptoms: {
+        Row: {
+          chest_tightness: boolean | null
+          chest_tightness_severity: number | null
+          cough: boolean | null
+          cough_severity: number | null
+          created_at: string | null
+          eye_irritation: boolean | null
+          eye_irritation_severity: number | null
+          fatigue: boolean | null
+          fatigue_severity: number | null
+          id: string
+          log_date: string | null
+          notes: string | null
+          shortness_of_breath: boolean | null
+          shortness_of_breath_severity: number | null
+          sneeze: boolean | null
+          sneeze_severity: number | null
+          symptom_score: number | null
+          user_id: string
+          wheezing: boolean | null
+          wheezing_severity: number | null
+        }
+        Insert: {
+          chest_tightness?: boolean | null
+          chest_tightness_severity?: number | null
+          cough?: boolean | null
+          cough_severity?: number | null
+          created_at?: string | null
+          eye_irritation?: boolean | null
+          eye_irritation_severity?: number | null
+          fatigue?: boolean | null
+          fatigue_severity?: number | null
+          id?: string
+          log_date?: string | null
+          notes?: string | null
+          shortness_of_breath?: boolean | null
+          shortness_of_breath_severity?: number | null
+          sneeze?: boolean | null
+          sneeze_severity?: number | null
+          symptom_score?: number | null
+          user_id: string
+          wheezing?: boolean | null
+          wheezing_severity?: number | null
+        }
+        Update: {
+          chest_tightness?: boolean | null
+          chest_tightness_severity?: number | null
+          cough?: boolean | null
+          cough_severity?: number | null
+          created_at?: string | null
+          eye_irritation?: boolean | null
+          eye_irritation_severity?: number | null
+          fatigue?: boolean | null
+          fatigue_severity?: number | null
+          id?: string
+          log_date?: string | null
+          notes?: string | null
+          shortness_of_breath?: boolean | null
+          shortness_of_breath_severity?: number | null
+          sneeze?: boolean | null
+          sneeze_severity?: number | null
+          symptom_score?: number | null
+          user_id?: string
+          wheezing?: boolean | null
+          wheezing_severity?: number | null
+        }
+        Relationships: []
+      }
       health_logs: {
         Row: {
           age: number
@@ -77,6 +146,45 @@ export type Database = {
           symptoms?: string[] | null
           user_id?: string
           wearing_mask?: boolean | null
+        }
+        Relationships: []
+      }
+      notification_settings: {
+        Row: {
+          aqi_threshold: number | null
+          created_at: string | null
+          enable_quiet_hours: boolean | null
+          id: string
+          location_rules: Json | null
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          symptom_alerts_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          aqi_threshold?: number | null
+          created_at?: string | null
+          enable_quiet_hours?: boolean | null
+          id?: string
+          location_rules?: Json | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          symptom_alerts_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          aqi_threshold?: number | null
+          created_at?: string | null
+          enable_quiet_hours?: boolean | null
+          id?: string
+          location_rules?: Json | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          symptom_alerts_enabled?: boolean | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

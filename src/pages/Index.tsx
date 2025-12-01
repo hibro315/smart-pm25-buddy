@@ -15,6 +15,8 @@ import { PHRICalculator } from "@/components/PHRICalculator";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
+import { SymptomQuickLog } from "@/components/SymptomQuickLog";
+import { NotificationSettings } from "@/components/NotificationSettings";
 
 import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
@@ -304,6 +306,9 @@ const Index = () => {
           phri={currentPHRI}
         />
 
+        {/* Symptom Quick Log */}
+        <SymptomQuickLog />
+
         {/* PHRI Comparison */}
         <PHRIComparison />
 
@@ -344,7 +349,7 @@ const Index = () => {
 
         {/* Tabs for AI, Chat, Recommendations, Hospitals, Navigation and PHRI */}
         <Tabs defaultValue="chatbot" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
             <TabsTrigger value="chatbot">
               <MessageSquare className="w-4 h-4 mr-1" />
               Chat
@@ -352,6 +357,9 @@ const Index = () => {
             <TabsTrigger value="phri">
               <Activity className="w-4 h-4 mr-1" />
               PHRI
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              ⚙️ Settings
             </TabsTrigger>
             <TabsTrigger value="ai-advice">AI</TabsTrigger>
             <TabsTrigger value="recommendations">คำแนะนำ</TabsTrigger>
@@ -382,6 +390,9 @@ const Index = () => {
             />
             <PHRITrendChart />
             <HealthLogsHistory />
+          </TabsContent>
+          <TabsContent value="settings" className="mt-4">
+            <NotificationSettings />
           </TabsContent>
           <TabsContent value="ai-advice" className="mt-4">
             <AIHealthAdvice

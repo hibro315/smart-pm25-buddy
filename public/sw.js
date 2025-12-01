@@ -84,6 +84,45 @@ const openDB = () => {
   });
 };
 
+// Helper: Get notification settings from IndexedDB
+const getNotificationSettings = async () => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get('notification-settings');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting notification settings:', error);
+    return null;
+  }
+};
+
+// Helper: Check if currently in quiet hours
+const isQuietHours = (settings) => {
+  if (!settings || !settings.enable_quiet_hours) return false;
+  
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  
+  const [startHour, startMin] = settings.quiet_hours_start.split(':').map(Number);
+  const [endHour, endMin] = settings.quiet_hours_end.split(':').map(Number);
+  
+  const startTime = startHour * 60 + startMin;
+  const endTime = endHour * 60 + endMin;
+  
+  if (startTime <= endTime) {
+    return currentTime >= startTime && currentTime < endTime;
+  } else {
+    // Crosses midnight
+    return currentTime >= startTime || currentTime < endTime;
+  }
+};
+
 // Helper: Get user's last known location from IndexedDB
 const getLastLocation = async () => {
   try {
@@ -233,13 +272,22 @@ const fetchAirQuality = async (latitude, longitude) => {
   }
 };
 
-// Check if notification should be triggered based on AQI thresholds
-const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged) => {
+// Check if notification should be triggered based on AQI thresholds and settings
+const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged, settings) => {
+  // Check quiet hours
+  if (isQuietHours(settings)) {
+    console.log('🔇 In quiet hours, skipping notification');
+    return { notify: false, reason: 'quiet_hours' };
+  }
+  
+  // Get custom threshold from settings (default 100)
+  const threshold = settings?.aqi_threshold || 100;
+  
   // Calculate AQI change
   const aqiChange = previousAqi ? Math.abs(aqi - previousAqi) : 0;
   
-  // Always notify on location change if AQI is unhealthy (>100)
-  if (hasLocationChanged && aqi > 100) {
+  // Always notify on location change if AQI exceeds threshold
+  if (hasLocationChanged && aqi > threshold) {
     return { notify: true, reason: 'location_change' };
   }
   
@@ -248,19 +296,14 @@ const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged) => {
     return { notify: true, reason: 'health_conditions' };
   }
   
-  // Notify if AQI significantly increased (>25 points change)
-  if (aqiChange > 25 && aqi > 50) {
+  // Notify if AQI significantly increased (>25 points change) and exceeds threshold
+  if (aqiChange > 25 && aqi > threshold) {
     return { notify: true, reason: 'aqi_spike' };
   }
   
-  // Notify if AQI crosses into unhealthy territory (>100)
-  if (aqi > 100) {
-    return { notify: true, reason: 'unhealthy_aqi' };
-  }
-  
-  // Notify if AQI is very unhealthy (>200)
-  if (aqi > 200) {
-    return { notify: true, reason: 'critical_aqi' };
+  // Notify if AQI exceeds user's threshold
+  if (aqi > threshold) {
+    return { notify: true, reason: 'threshold_exceeded' };
   }
   
   return { notify: false, reason: null };
@@ -432,12 +475,16 @@ const handlePeriodicSync = async () => {
     // Get user health profile
     const healthProfile = await getHealthProfile();
     
+    // Get notification settings
+    const notificationSettings = await getNotificationSettings();
+    
     // Check if notification should be triggered based on AQI
     const notificationCheck = shouldNotify(
       airQualityData.aqi,
       healthProfile,
       previousAirQualityData?.aqi,
-      hasLocationChanged
+      hasLocationChanged,
+      notificationSettings
     );
     
     if (notificationCheck.notify) {
@@ -446,6 +493,8 @@ const handlePeriodicSync = async () => {
         airQualityData.location || 'ตำแหน่งปัจจุบัน',
         notificationCheck.reason
       );
+    } else if (notificationCheck.reason === 'quiet_hours') {
+      console.log('⏰ Notification suppressed due to quiet hours');
     }
     
     console.log('✅ Periodic sync completed successfully');
