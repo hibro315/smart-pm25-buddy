@@ -41,6 +41,20 @@ export const useWeeklyHealthSummary = () => {
           description: 'คุณต้องเข้าสู่ระบบก่อนใช้ฟีเจอร์นี้',
           variant: 'destructive',
         });
+        setLoading(false);
+        return;
+      }
+
+      // Verify the session is still valid
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast({
+          title: 'กรุณาเข้าสู่ระบบใหม่',
+          description: 'เซสชันของคุณหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+          variant: 'destructive',
+        });
+        setLoading(false);
         return;
       }
 
