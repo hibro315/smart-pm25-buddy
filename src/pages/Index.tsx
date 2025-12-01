@@ -19,6 +19,7 @@ import { SymptomQuickLog } from "@/components/SymptomQuickLog";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { BackgroundMonitorSettings } from "@/components/BackgroundMonitorSettings";
+import { GeofenceSettings } from "@/components/GeofenceSettings";
 
 import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
@@ -403,6 +404,7 @@ const Index = () => {
             <NotificationSettings />
             <PushNotificationSettings />
             <BackgroundMonitorSettings />
+            <GeofenceSettings />
           </TabsContent>
           <TabsContent value="ai-advice" className="mt-4">
             <AIHealthAdvice

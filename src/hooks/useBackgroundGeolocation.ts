@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { backgroundGeolocationService, Location } from '@/services/BackgroundGeolocationService';
 import { NotificationService } from '@/services/NotificationService';
+import { useGeofencing } from './useGeofencing';
 
 export interface BackgroundGeolocationConfig {
   enabled: boolean;
@@ -24,6 +25,7 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
   const [lastUpdate, setLastUpdate] = useState<LocationUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previousPM25, setPreviousPM25] = useState<number | null>(null);
+  const { checkGeofences } = useGeofencing();
 
   // Save location history to IndexedDB
   const saveLocationHistory = async (update: LocationUpdate) => {
@@ -106,6 +108,9 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
   const handleLocationUpdate = async (location: Location) => {
     try {
       const { latitude, longitude } = location;
+      
+      // Check geofence zones
+      checkGeofences(latitude, longitude);
       
       // Fetch air quality data
       const airQualityData = await fetchAirQuality(latitude, longitude);
