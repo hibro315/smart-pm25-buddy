@@ -224,6 +224,45 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_check: string | null
+          last_location: Json | null
+          last_pm25: number | null
+          notification_settings: Json | null
+          subscription: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_check?: string | null
+          last_location?: Json | null
+          last_pm25?: number | null
+          notification_settings?: Json | null
+          subscription: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_check?: string | null
+          last_location?: Json | null
+          last_pm25?: number | null
+          notification_settings?: Json | null
+          subscription?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       vital_signs: {
         Row: {
           anomalies: string[] | null
