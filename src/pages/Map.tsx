@@ -7,7 +7,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { useState, useEffect } from "react";
 
 const Map = () => {
-  const { data } = useAirQualityWithFallback();
+  const { data, refreshing } = useAirQualityWithFallback();
   const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number }>({ 
     lat: 13.7563, 
     lng: 100.5018 
@@ -40,8 +40,13 @@ const Map = () => {
 
       <div className="container mx-auto px-6 py-6 space-y-6">
         {/* Current Location Card */}
-        <Card className="p-5 shadow-card">
-          <div className="flex items-center gap-3 mb-3">
+        <Card className="p-5 shadow-card relative">
+          {refreshing && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-primary/20">
+              <div className="h-full bg-primary animate-pulse" />
+            </div>
+          )}
+          <div className="flex items-center gap-3 mb-3">{/* ... keep existing code */}
             <div className="bg-primary/10 p-2 rounded-lg">
               <MapPin className="w-5 h-5 text-primary" />
             </div>

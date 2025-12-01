@@ -32,15 +32,26 @@ const POLLING_INTERVAL = 15 * 60 * 1000; // 15 minutes
 const CACHE_KEY = 'lastKnownAQI';
 
 export const useAirQualityWithFallback = () => {
-  const [data, setData] = useState<AirQualityData | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Load cached data immediately on mount
+  const getCachedData = (): AirQualityData | null => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const [data, setData] = useState<AirQualityData | null>(getCachedData);
+  const [loading, setLoading] = useState(!getCachedData()); // Only show loading if no cache
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lon: number } | null>(null);
   const pollingRef = useRef<NodeJS.Timeout>();
   const abortControllerRef = useRef<AbortController>();
 
-  // Get user's location
+  // Get user's location and fetch data immediately
   useEffect(() => {
     const fetchLocation = async () => {
       try {
@@ -64,11 +75,11 @@ export const useAirQualityWithFallback = () => {
 
   useEffect(() => {
     if (currentLocation) {
-      fetchWithFallback(currentLocation.lat, currentLocation.lon);
+      fetchWithFallback(currentLocation.lat, currentLocation.lon, true);
       
       // Set up polling
       pollingRef.current = setInterval(() => {
-        fetchWithFallback(currentLocation.lat, currentLocation.lon);
+        fetchWithFallback(currentLocation.lat, currentLocation.lon, false);
       }, POLLING_INTERVAL);
 
       return () => {
@@ -78,9 +89,15 @@ export const useAirQualityWithFallback = () => {
     }
   }, [currentLocation]);
 
-  const fetchWithFallback = async (lat: number, lon: number) => {
+  const fetchWithFallback = async (lat: number, lon: number, isInitial = false) => {
     try {
-      setLoading(true);
+      // Show loading only on initial fetch if no cached data
+      if (isInitial && !data) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+      
       setError(null);
       setUsingFallback(false);
 
@@ -129,32 +146,29 @@ export const useAirQualityWithFallback = () => {
     } catch (err) {
       console.error('Error fetching air quality:', err);
       
-      // Try to use cached data
-      const cachedData = localStorage.getItem(CACHE_KEY);
-      if (cachedData) {
-        try {
-          const parsedCache = JSON.parse(cachedData);
-          setData(parsedCache);
-          setUsingFallback(true);
-          
+      // Try to use cached data only if we don't have current data
+      if (!data) {
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          try {
+            const parsedCache = JSON.parse(cachedData);
+            setData(parsedCache);
+            setUsingFallback(true);
+          } catch (parseError) {
+            setError('ไม่สามารถโหลดข้อมูลได้');
+          }
+        } else {
+          setError('ไม่สามารถดึงข้อมูลคุณภาพอากาศได้ และไม่พบข้อมูลสำรอง');
           toast({
-            title: 'ใช้ข้อมูลสำรอง',
-            description: 'ไม่สามารถดึงข้อมูลใหม่ได้ กำลังแสดงข้อมูลล่าสุดที่บันทึกไว้',
-            variant: 'default',
+            title: 'เกิดข้อผิดพลาด',
+            description: 'ไม่สามารถดึงข้อมูลคุณภาพอากาศได้',
+            variant: 'destructive',
           });
-        } catch (parseError) {
-          setError('ไม่สามารถโหลดข้อมูลได้');
         }
-      } else {
-        setError('ไม่สามารถดึงข้อมูลคุณภาพอากาศได้ และไม่พบข้อมูลสำรอง');
-        toast({
-          title: 'เกิดข้อผิดพลาด',
-          description: 'ไม่สามารถดึงข้อมูลคุณภาพอากาศได้',
-          variant: 'destructive',
-        });
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -184,6 +198,7 @@ export const useAirQualityWithFallback = () => {
   return {
     data,
     loading,
+    refreshing,
     error,
     usingFallback,
     refetch,
