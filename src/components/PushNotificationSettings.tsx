@@ -32,14 +32,15 @@ export const PushNotificationSettings = () => {
             Push Notifications
           </CardTitle>
           <CardDescription>
-            อุปกรณ์ของคุณไม่รองรับ Push Notifications
+            อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับ Push Notifications
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 rounded-lg bg-muted p-4">
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              กรุณาใช้อุปกรณ์หรือเบราว์เซอร์ที่รองรับ Push Notifications
+              สำหรับ Web: ใช้ Chrome, Firefox หรือ Edge เวอร์ชันล่าสุด<br />
+              สำหรับ Native: ตรวจสอบ permissions ในการตั้งค่าอุปกรณ์
             </p>
           </div>
         </CardContent>
@@ -120,15 +121,15 @@ export const PushNotificationSettings = () => {
           </Button>
         )}
 
-        {/* Browser Compatibility Info */}
+        {/* Browser/Platform Compatibility Info */}
         <div className="rounded-lg bg-primary/5 p-4 space-y-1">
           <p className="text-sm font-medium">ℹ️ ความเข้ากันได้</p>
           <p className="text-xs text-muted-foreground">
-            ✅ Chrome/Edge (Android) - รองรับเต็มรูปแบบ
+            ✅ <strong>Native App</strong> (Android/iOS) - รองรับเต็มรูปแบบ
             <br />
-            ✅ แจ้งเตือนแม้ปิดแอป (Service Worker)
+            ✅ <strong>Web PWA</strong> (Chrome/Edge Android) - แจ้งเตือนแม้ปิดแอป
             <br />
-            ⚠️ iOS - ต้อง Add to Home Screen + iOS 16.4+
+            ⚠️ <strong>iOS Web</strong> - ต้อง Add to Home Screen + iOS 16.4+
           </p>
         </div>
       </CardContent>
