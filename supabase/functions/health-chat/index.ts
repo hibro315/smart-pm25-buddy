@@ -12,9 +12,10 @@ serve(async (req) => {
   }
 
   try {
+    // Get JWT from Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
-      console.error("No authorization header provided");
+      console.error("❌ No authorization header");
       return new Response(
         JSON.stringify({ error: "กรุณาเข้าสู่ระบบก่อนใช้งาน" }),
         {
@@ -24,23 +25,42 @@ serve(async (req) => {
       );
     }
 
+    // Extract JWT token
+    const jwt = authHeader.replace("Bearer ", "");
+    console.log("🔑 JWT received:", jwt.substring(0, 20) + "...");
+
+    // Create Supabase client with JWT
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
+      { 
+        global: { 
+          headers: { Authorization: authHeader } 
+        },
+        auth: {
+          persistSession: false
+        }
+      }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Get user from JWT (Supabase already verified it via verify_jwt = true)
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
+    
     if (userError || !user) {
-      console.error("User authentication failed:", userError);
+      console.error("❌ User verification failed:", userError?.message || "No user");
       return new Response(
-        JSON.stringify({ error: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง" }),
+        JSON.stringify({ 
+          error: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
+          details: userError?.message 
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+
+    console.log("✅ User authenticated:", user.email);
 
     const { messages, sessionId, saveHistory = true, pm25, aqi, temperature, humidity, location } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

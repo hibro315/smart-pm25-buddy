@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
-      console.error("No authorization header provided");
+      console.error("❌ No authorization header");
       return new Response(
         JSON.stringify({ error: "กรุณาเข้าสู่ระบบก่อนใช้งาน" }),
         {
@@ -24,23 +24,34 @@ serve(async (req) => {
       );
     }
 
+    const jwt = authHeader.replace("Bearer ", "");
+    console.log("🔑 JWT received:", jwt.substring(0, 20) + "...");
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
+      { 
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false }
+      }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     if (userError || !user) {
-      console.error("User authentication failed:", userError);
+      console.error("❌ User verification failed:", userError?.message || "No user");
       return new Response(
-        JSON.stringify({ error: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง" }),
+        JSON.stringify({ 
+          error: "กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
+          details: userError?.message 
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+
+    console.log("✅ User authenticated:", user.email);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {

@@ -152,7 +152,7 @@ export const HealthChatbotEnhanced = ({
     let assistantContent = "";
 
     try {
-      // Refresh session to get a fresh token
+      // Refresh session to ensure fresh token
       const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
       
       if (refreshError || !session?.access_token) {
@@ -162,16 +162,16 @@ export const HealthChatbotEnhanced = ({
           variant: "destructive",
         });
         setIsLoading(false);
-        // Redirect to auth page
         window.location.href = '/auth';
         return;
       }
 
-      console.log("✅ Token refreshed:", session.access_token.substring(0, 20) + "...");
+      console.log("✅ Session refreshed successfully");
 
       // Include user health profile in context
       const contextInfo = profile ? `\n\nข้อมูลสุขภาพผู้ใช้:\n- อายุ: ${profile.age} ปี\n- เพศ: ${profile.gender}\n- โรคประจำตัว: ${profile.chronicConditions.length > 0 ? profile.chronicConditions.join(', ') : 'ไม่มี'}\n- ความไวต่อฝุ่น: ${profile.dustSensitivity}\n- กิจกรรมทางกาย: ${profile.physicalActivity}` : '';
 
+      // Use Supabase SDK for proper authentication handling
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`,
         {
@@ -179,6 +179,7 @@ export const HealthChatbotEnhanced = ({
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             messages: [
@@ -196,14 +197,21 @@ export const HealthChatbotEnhanced = ({
         }
       );
 
+      console.log("📡 Response status:", response.status);
+
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error("❌ API Error:", response.status, errorData);
+        
         if (response.status === 401) {
-          const errorData = await response.json().catch(() => ({}));
           toast({
             title: "กรุณาเข้าสู่ระบบใหม่",
             description: errorData.error || "เซสชันของคุณหมดอายุแล้ว",
             variant: "destructive",
           });
+          setTimeout(() => {
+            window.location.href = '/auth';
+          }, 2000);
           setIsLoading(false);
           return;
         }
@@ -216,9 +224,11 @@ export const HealthChatbotEnhanced = ({
           setIsLoading(false);
           return;
         }
-        if (!response.body) {
-          throw new Error("Failed to start stream");
-        }
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("No response body");
       }
 
       const reader = response.body.getReader();
