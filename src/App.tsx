@@ -6,10 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Index from "./pages/Index";
+import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import Map from "./pages/Map";
+import Chat from "./pages/Chat";
+import Notifications from "./pages/Notifications";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import BottomNav from "./components/BottomNav";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,14 +55,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <ErrorBoundary isolate>
-                    <Index />
-                  </ErrorBoundary>
-                } 
-              />
+              {/* Auth Routes */}
               <Route 
                 path="/auth" 
                 element={
@@ -74,6 +72,49 @@ const App = () => {
                   </ErrorBoundary>
                 } 
               />
+
+              {/* Main App Routes with Bottom Navigation */}
+              <Route path="/" element={
+                <>
+                  <ErrorBoundary isolate>
+                    <Home />
+                  </ErrorBoundary>
+                  <BottomNav />
+                </>
+              } />
+              <Route path="/dashboard" element={
+                <>
+                  <ErrorBoundary isolate>
+                    <Dashboard />
+                  </ErrorBoundary>
+                  <BottomNav />
+                </>
+              } />
+              <Route path="/map" element={
+                <>
+                  <ErrorBoundary isolate>
+                    <Map />
+                  </ErrorBoundary>
+                  <BottomNav />
+                </>
+              } />
+              <Route path="/chat" element={
+                <>
+                  <ErrorBoundary isolate>
+                    <Chat />
+                  </ErrorBoundary>
+                  <BottomNav />
+                </>
+              } />
+              <Route path="/notifications" element={
+                <>
+                  <ErrorBoundary isolate>
+                    <Notifications />
+                  </ErrorBoundary>
+                  <BottomNav />
+                </>
+              } />
+
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
