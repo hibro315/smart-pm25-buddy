@@ -308,6 +308,12 @@ const Index = () => {
           aqi={data?.aqi}
           location={location}
           timestamp={currentTime}
+          temperature={data?.temperature}
+          humidity={data?.humidity}
+          pressure={data?.pressure}
+          wind={data?.wind}
+          nearbyStations={data?.nearbyStations}
+          source={data?.source}
         />
 
         {/* PHRI Display */}
