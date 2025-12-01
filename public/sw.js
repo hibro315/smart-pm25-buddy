@@ -249,13 +249,11 @@ const saveAirQualityData = async (data) => {
 // Fetch air quality data from edge function
 const fetchAirQuality = async (latitude, longitude) => {
   try {
-    // Use self.location to get the origin dynamically
-    const baseUrl = self.location.origin;
-    
-    const response = await fetch(`${baseUrl}/.netlify/functions/get-air-quality`, {
+    const response = await fetch('https://mfieephfmgoqszratqhu.supabase.co/functions/v1/get-air-quality', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1maWVlcGhmbWdvcXN6cmF0cWh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDk2NzQsImV4cCI6MjA3OTUyNTY3NH0.0SU8y29BS6IcT8on5l2U9JD74zafNPBK0CVLCse84fQ'
       },
       body: JSON.stringify({ latitude, longitude })
     });
@@ -537,6 +535,31 @@ sw.addEventListener('notificationclick', (event) => {
           return sw.clients.openWindow('/');
         }
       })
+  );
+});
+
+// Handle push notifications from server
+sw.addEventListener('push', (event) => {
+  console.log('📬 Push notification received:', event);
+  
+  const data = event.data?.json() || {};
+  const title = data.title || '🌫️ แจ้งเตือนคุณภาพอากาศ';
+  const options = {
+    body: data.body || 'คุณภาพอากาศเปลี่ยนแปลง',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'push-notification',
+    vibrate: [300, 100, 300, 100, 300], // Vibration pattern
+    requireInteraction: data.requireInteraction || false,
+    data: data.data || {},
+    actions: [
+      { action: 'view', title: 'ดูรายละเอียด' },
+      { action: 'dismiss', title: 'ปิด' }
+    ]
+  };
+  
+  event.waitUntil(
+    sw.registration.showNotification(title, options)
   );
 });
 
