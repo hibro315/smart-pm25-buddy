@@ -82,7 +82,9 @@ export const HealthChatbotEnhanced = ({
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -112,6 +114,7 @@ export const HealthChatbotEnhanced = ({
   };
 
   const speak = (text: string) => {
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'th-TH';
@@ -126,7 +129,9 @@ export const HealthChatbotEnhanced = ({
   };
 
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   };
 
