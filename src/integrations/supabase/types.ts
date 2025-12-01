@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversation_history: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_symptoms: {
         Row: {
           chest_tightness: boolean | null
@@ -122,6 +152,39 @@ export type Database = {
           radius?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      health_knowledge: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          source: string | null
+          tags: string[] | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          topic?: string
+          updated_at?: string
         }
         Relationships: []
       }

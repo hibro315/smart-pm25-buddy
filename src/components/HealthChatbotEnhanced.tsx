@@ -36,6 +36,7 @@ export const HealthChatbotEnhanced = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
@@ -174,6 +175,8 @@ export const HealthChatbotEnhanced = ({
               ...messages.map(m => ({ role: m.role, content: m.content })),
               { role: "user", content: userMessage.content + contextInfo }
             ],
+            sessionId,
+            saveHistory: true,
             pm25,
             aqi,
             temperature,
