@@ -37,10 +37,10 @@ serve(async (req) => {
       );
     }
 
-    const IQAIR_API_KEY = Deno.env.get('IQAIR_API_KEY');
+    const AQICN_API_KEY = Deno.env.get('AQICN_API_KEY') || 'cf980db5-197e-4fef-83c9-d725f1bb62c9';
     
-    if (!IQAIR_API_KEY) {
-      console.error('IQAIR_API_KEY not configured');
+    if (!AQICN_API_KEY) {
+      console.error('AQICN_API_KEY not configured');
       return new Response(
         JSON.stringify({ 
           error: 'API key not configured',
@@ -59,8 +59,8 @@ serve(async (req) => {
       );
     }
 
-    // Fetch air quality data from IQAir API
-    const airQualityUrl = `http://api.airvisual.com/v2/nearest_city?lat=${latitude}&lon=${longitude}&key=${IQAIR_API_KEY}`;
+    // Fetch air quality data from AQICN API
+    const airQualityUrl = `https://api.waqi.info/feed/geo:${latitude};${longitude}/?token=${AQICN_API_KEY}`;
     
     const airQualityResponse = await fetch(airQualityUrl, {
       headers: {
@@ -71,7 +71,7 @@ serve(async (req) => {
 
     if (!airQualityResponse.ok) {
       const errorText = await airQualityResponse.text();
-      console.error('IQAir API error:', airQualityResponse.status, errorText);
+      console.error('AQICN API error:', airQualityResponse.status, errorText);
       
       // Return fallback data instead of throwing error
       return new Response(
@@ -98,11 +98,11 @@ serve(async (req) => {
     }
 
     const airQualityData = await airQualityResponse.json();
-    console.log('IQAir data received:', airQualityData);
+    console.log('AQICN data received:', airQualityData);
 
-    // Check if IQAir API returned valid data
-    if (airQualityData.status !== 'success' || !airQualityData.data) {
-      console.error('IQAir API returned invalid data:', airQualityData);
+    // Check if AQICN API returned valid data
+    if (airQualityData.status !== 'ok' || !airQualityData.data) {
+      console.error('AQICN API returned invalid data:', airQualityData);
       
       // Return fallback data
       return new Response(
@@ -130,30 +130,28 @@ serve(async (req) => {
 
     const data = airQualityData.data;
     
-    // Extract location name from IQAir data
-    const location = `${data.city}, ${data.state}, ${data.country}`;
+    // Extract location name from AQICN data
+    const cityName = data.city?.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+    const location = cityName;
     
-    // Extract air quality data from IQAir
-    const current = data.current;
-    const pollution = current.pollution;
-    const weather = current.weather;
+    // Extract air quality data from AQICN
+    const aqi = Math.round(data.aqi || 0);
     
-    // IQAir provides AQI (US EPA standard) and pollutant concentrations
-    const aqi = Math.round(pollution.aqius || 0);
-    const pm25 = Math.round(pollution.p2?.conc || 0);
-    const pm10 = Math.round(pollution.p1?.conc || 0);
+    // AQICN provides individual pollutant measurements in iaqi object
+    const iaqi = data.iaqi || {};
+    const pm25 = Math.round(iaqi.pm25?.v || 0);
+    const pm10 = Math.round(iaqi.pm10?.v || 0);
+    const no2 = Math.round(iaqi.no2?.v || 0);
+    const o3 = Math.round(iaqi.o3?.v || 0);
+    const so2 = Math.round(iaqi.so2?.v || 0);
+    const co = Math.round(iaqi.co?.v || 0);
     
-    // IQAir doesn't provide other pollutants in basic plan, use defaults
-    const no2 = 0;
-    const o3 = 0;
-    const so2 = 0;
-    const co = 0;
+    // Extract temperature and humidity from AQICN weather data
+    const temperature = Math.round(iaqi.t?.v || 28);
+    const humidity = Math.round(iaqi.h?.v || 65);
     
-    // Extract temperature and humidity from IQAir weather data
-    const temperature = Math.round(weather.tp || 28);
-    const humidity = Math.round(weather.hu || 65);
-    
-    const timestamp = new Date().toISOString();
+    // Parse timestamp from AQICN
+    const timestamp = data.time?.iso || new Date().toISOString();
     
     console.log('Processed data:', { 
       pm25, pm10, no2, o3, so2, co, aqi,
@@ -173,7 +171,7 @@ serve(async (req) => {
         timestamp,
         temperature,
         humidity,
-        source: 'IQAir'
+        source: 'AQICN'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

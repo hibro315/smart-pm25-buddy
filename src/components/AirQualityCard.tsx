@@ -22,6 +22,24 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
     return { level: "อันตราย", color: "bg-aqi-hazardous", textColor: "text-aqi-hazardous" };
   };
 
+  const formatThaiDateTime = (isoString?: string) => {
+    if (!isoString) return '';
+    
+    const date = new Date(isoString);
+    const thaiMonths = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    
+    const day = date.getDate();
+    const month = thaiMonths[date.getMonth()];
+    const year = date.getFullYear() + 543; // Convert to Buddhist Era
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${day} ${month} ${year} เวลา ${hours}:${minutes}`;
+  };
+
   const aqiLevel = getAQILevel(pm25);
   const isUnsafe = pm25 > 37;
 
@@ -35,7 +53,7 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
               <h3 className="font-semibold text-foreground">{location}</h3>
             </div>
             {timestamp && (
-              <p className="text-sm text-muted-foreground">{timestamp}</p>
+              <p className="text-sm text-muted-foreground">{formatThaiDateTime(timestamp)}</p>
             )}
             {source && (
               <p className="text-xs text-muted-foreground">แหล่งข้อมูล: {source}</p>
