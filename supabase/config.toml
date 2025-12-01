@@ -13,6 +13,9 @@ verify_jwt = true  # Prevent AI API quota abuse
 [functions.health-chat]
 verify_jwt = true  # Prevent AI API quota abuse
 
+[functions.weekly-health-summary]
+verify_jwt = true  # Requires authentication to access user health data
+
 [functions.personalized-health-advice]
 verify_jwt = true  # Prevent AI API quota abuse
 
