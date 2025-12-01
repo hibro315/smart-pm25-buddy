@@ -8,6 +8,8 @@ import { AlertNotification } from "@/components/AlertNotification";
 import { NearbyHospitals } from "@/components/NearbyHospitals";
 import { AIHealthAdvice } from "@/components/AIHealthAdvice";
 import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
+import { HealthTrendAnalysis } from "@/components/HealthTrendAnalysis";
+import { ConversationHistory } from "@/components/ConversationHistory";
 import { RouteMap } from "@/components/RouteMap";
 import { LocationMonitorAlert } from "@/components/LocationMonitorAlert";
 import { PHRIDisplay } from "@/components/PHRIDisplay";
@@ -447,6 +449,11 @@ const Index = () => {
               humidity={data?.humidity || 0}
               location={location}
             />
+            
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <HealthTrendAnalysis />
+              <ConversationHistory />
+            </div>
           </TabsContent>
           <TabsContent value="phri" className="mt-4 space-y-4">
             <PHRICalculator 
