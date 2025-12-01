@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
@@ -73,46 +74,56 @@ const App = () => {
                 } 
               />
 
-              {/* Main App Routes with Bottom Navigation */}
+              {/* Main App Routes with Bottom Navigation - Protected */}
               <Route path="/" element={
-                <>
-                  <ErrorBoundary isolate>
-                    <Home />
-                  </ErrorBoundary>
-                  <BottomNav />
-                </>
+                <ProtectedRoute>
+                  <>
+                    <ErrorBoundary isolate>
+                      <Home />
+                    </ErrorBoundary>
+                    <BottomNav />
+                  </>
+                </ProtectedRoute>
               } />
               <Route path="/dashboard" element={
-                <>
-                  <ErrorBoundary isolate>
-                    <Dashboard />
-                  </ErrorBoundary>
-                  <BottomNav />
-                </>
+                <ProtectedRoute>
+                  <>
+                    <ErrorBoundary isolate>
+                      <Dashboard />
+                    </ErrorBoundary>
+                    <BottomNav />
+                  </>
+                </ProtectedRoute>
               } />
               <Route path="/map" element={
-                <>
-                  <ErrorBoundary isolate>
-                    <Map />
-                  </ErrorBoundary>
-                  <BottomNav />
-                </>
+                <ProtectedRoute>
+                  <>
+                    <ErrorBoundary isolate>
+                      <Map />
+                    </ErrorBoundary>
+                    <BottomNav />
+                  </>
+                </ProtectedRoute>
               } />
               <Route path="/chat" element={
-                <>
-                  <ErrorBoundary isolate>
-                    <Chat />
-                  </ErrorBoundary>
-                  <BottomNav />
-                </>
+                <ProtectedRoute>
+                  <>
+                    <ErrorBoundary isolate>
+                      <Chat />
+                    </ErrorBoundary>
+                    <BottomNav />
+                  </>
+                </ProtectedRoute>
               } />
               <Route path="/notifications" element={
-                <>
-                  <ErrorBoundary isolate>
-                    <Notifications />
-                  </ErrorBoundary>
-                  <BottomNav />
-                </>
+                <ProtectedRoute>
+                  <>
+                    <ErrorBoundary isolate>
+                      <Notifications />
+                    </ErrorBoundary>
+                    <BottomNav />
+                  </>
+                </ProtectedRoute>
               } />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
