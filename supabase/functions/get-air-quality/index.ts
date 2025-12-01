@@ -37,7 +37,7 @@ serve(async (req) => {
       );
     }
 
-    const AQICN_API_KEY = Deno.env.get('AQICN_API_KEY') || 'cf980db5-197e-4fef-83c9-d725f1bb62c9';
+    const AQICN_API_KEY = Deno.env.get('AQICN_API_KEY');
     
     if (!AQICN_API_KEY) {
       console.error('AQICN_API_KEY not configured');
