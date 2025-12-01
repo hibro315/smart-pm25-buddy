@@ -14,11 +14,24 @@ const CHRONIC_CONDITIONS = [
   { id: 'asthma', label: 'หอบหืด' },
   { id: 'allergy', label: 'ภูมิแพ้' },
   { id: 'sinusitis', label: 'ไซนัสอักเสบ' },
+  { id: 'copd', label: 'COPD' },
   { id: 'heart_disease', label: 'โรคหัวใจ' },
   { id: 'diabetes', label: 'เบาหวาน' },
   { id: 'hypertension', label: 'ความดันโลหิตสูง' },
-  { id: 'copd', label: 'ปอดอุดกั้นเรื้อรัง' },
   { id: 'other', label: 'อื่นๆ' },
+];
+
+const MASK_TYPES = [
+  { id: 'n95', label: 'N95' },
+  { id: 'kf94', label: 'KF94' },
+  { id: 'surgical', label: 'Surgical Mask' },
+  { id: 'cloth', label: 'หน้ากากผ้า' },
+];
+
+const POLLUTION_SOURCES = [
+  { id: 'road', label: 'ถนนใหญ่' },
+  { id: 'factory', label: 'โรงงาน' },
+  { id: 'construction', label: 'สถานีก่อสร้าง' },
 ];
 
 export const EnhancedHealthProfileForm = () => {
@@ -44,6 +57,9 @@ export const EnhancedHealthProfileForm = () => {
   const [dustSensitivity, setDustSensitivity] = useState<'low' | 'medium' | 'high'>(profile?.dustSensitivity || 'medium');
   const [hasAirPurifier, setHasAirPurifier] = useState(profile?.hasAirPurifier || false);
   const [maskUsage, setMaskUsage] = useState<'none' | 'regular' | 'n95' | 'kf94'>(profile?.maskUsage || 'none');
+  const [selectedMaskTypes, setSelectedMaskTypes] = useState<string[]>([]);
+  const [maskFrequency, setMaskFrequency] = useState<'daily' | 'high_dust' | 'rarely' | 'none'>('none');
+  const [selectedPollutionSources, setSelectedPollutionSources] = useState<string[]>([]);
   const [outdoorTimeDaily, setOutdoorTimeDaily] = useState(profile?.outdoorTimeDaily || 60);
   const [physicalActivity, setPhysicalActivity] = useState<'sedentary' | 'moderate' | 'active'>(profile?.physicalActivity || 'moderate');
 
@@ -79,6 +95,22 @@ export const EnhancedHealthProfileForm = () => {
       prev.includes(conditionId)
         ? prev.filter(id => id !== conditionId)
         : [...prev, conditionId]
+    );
+  };
+
+  const handleMaskTypeToggle = (maskId: string) => {
+    setSelectedMaskTypes(prev =>
+      prev.includes(maskId)
+        ? prev.filter(id => id !== maskId)
+        : [...prev, maskId]
+    );
+  };
+
+  const handlePollutionSourceToggle = (sourceId: string) => {
+    setSelectedPollutionSources(prev =>
+      prev.includes(sourceId)
+        ? prev.filter(id => id !== sourceId)
+        : [...prev, sourceId]
     );
   };
 
@@ -371,25 +403,73 @@ export const EnhancedHealthProfileForm = () => {
             </div>
 
             <div>
-              <Label>การใช้หน้ากากอนามัย</Label>
-              <RadioGroup value={maskUsage} onValueChange={(v) => setMaskUsage(v as any)}>
+              <Label>ความถี่ในการใช้หน้ากากอนามัย</Label>
+              <RadioGroup value={maskFrequency} onValueChange={(v) => setMaskFrequency(v as any)}>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="none" id="mask_none" />
-                  <Label htmlFor="mask_none">ไม่ใช้</Label>
+                  <RadioGroupItem value="daily" id="mask_freq_daily" />
+                  <Label htmlFor="mask_freq_daily">ใช้ทุกวัน</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="regular" id="mask_regular" />
-                  <Label htmlFor="mask_regular">หน้ากากธรรมดา</Label>
+                  <RadioGroupItem value="high_dust" id="mask_freq_dust" />
+                  <Label htmlFor="mask_freq_dust">ใช้เฉพาะวันที่ฝุ่นสูง</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="n95" id="mask_n95" />
-                  <Label htmlFor="mask_n95">N95</Label>
+                  <RadioGroupItem value="rarely" id="mask_freq_rarely" />
+                  <Label htmlFor="mask_freq_rarely">ไม่ค่อยใช้</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="kf94" id="mask_kf94" />
-                  <Label htmlFor="mask_kf94">KF94</Label>
+                  <RadioGroupItem value="none" id="mask_freq_none" />
+                  <Label htmlFor="mask_freq_none">ไม่ใช้</Label>
                 </div>
               </RadioGroup>
+            </div>
+
+            <div>
+              <Label className="mb-3 block">ประเภทหน้ากากที่ใช้ (เลือกได้หลายข้อ)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {MASK_TYPES.map((mask) => (
+                  <div key={mask.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={mask.id}
+                      checked={selectedMaskTypes.includes(mask.id)}
+                      onCheckedChange={() => handleMaskTypeToggle(mask.id)}
+                    />
+                    <Label htmlFor={mask.id} className="font-normal cursor-pointer">
+                      {mask.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-3 block">ทำงาน/เรียนใกล้แหล่งมลพิษ (เลือกได้หลายข้อ)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {POLLUTION_SOURCES.map((source) => (
+                  <div key={source.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={source.id}
+                      checked={selectedPollutionSources.includes(source.id)}
+                      onCheckedChange={() => handlePollutionSourceToggle(source.id)}
+                    />
+                    <Label htmlFor={source.id} className="font-normal cursor-pointer">
+                      {source.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id="no_pollution"
+                  checked={selectedPollutionSources.length === 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) setSelectedPollutionSources([]);
+                  }}
+                />
+                <Label htmlFor="no_pollution" className="font-normal cursor-pointer">
+                  ไม่มี
+                </Label>
+              </div>
             </div>
 
             <div>
