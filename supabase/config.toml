@@ -2,6 +2,7 @@ project_id = "mfieephfmgoqszratqhu"
 
 [functions.check-air-quality-push]
 verify_jwt = false  # Allow cron job to call without JWT
+schedule = "*/15 * * * *"  # Run every 15 minutes automatically
 
 [functions.send-push-notification]
 verify_jwt = true  # Requires authentication
