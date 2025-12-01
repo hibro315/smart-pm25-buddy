@@ -10,6 +10,7 @@ import { HealthCorrelationChart } from "@/components/HealthCorrelationChart";
 import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
 import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
+import { UserMenu } from "@/components/UserMenu";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
@@ -68,9 +69,12 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-2xl font-display font-bold">Health Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">ภาพรวมสุขภาพและ PHRI ของคุณ</p>
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Health Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">ภาพรวมสุขภาพและ PHRI ของคุณ</p>
+          </div>
+          <UserMenu />
         </div>
       </div>
 

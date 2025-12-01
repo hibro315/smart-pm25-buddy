@@ -4,6 +4,7 @@ import { NotificationSettings } from "@/components/NotificationSettings";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { BackgroundMonitorSettings } from "@/components/BackgroundMonitorSettings";
 import { GeofenceSettings } from "@/components/GeofenceSettings";
+import { UserMenu } from "@/components/UserMenu";
 import { Bell, Settings, MapPin, Activity } from "lucide-react";
 
 const Notifications = () => {
@@ -11,9 +12,12 @@ const Notifications = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-2xl font-display font-bold">Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">จัดการการแจ้งเตือนและการตั้งค่า</p>
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Notifications</h1>
+            <p className="text-sm text-muted-foreground mt-1">จัดการการแจ้งเตือนและการตั้งค่า</p>
+          </div>
+          <UserMenu />
         </div>
       </div>
 

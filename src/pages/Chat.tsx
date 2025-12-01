@@ -1,5 +1,6 @@
 import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
 import { ConversationHistory } from "@/components/ConversationHistory";
+import { UserMenu } from "@/components/UserMenu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, History } from "lucide-react";
 
@@ -8,9 +9,12 @@ const Chat = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-2xl font-display font-bold">AI Health Assistant</h1>
-          <p className="text-sm text-muted-foreground mt-1">ปรึกษา AI เกี่ยวกับสุขภาพและคุณภาพอากาศ</p>
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-display font-bold">AI Health Assistant</h1>
+            <p className="text-sm text-muted-foreground mt-1">ปรึกษา AI เกี่ยวกับสุขภาพและคุณภาพอากาศ</p>
+          </div>
+          <UserMenu />
         </div>
       </div>
 
