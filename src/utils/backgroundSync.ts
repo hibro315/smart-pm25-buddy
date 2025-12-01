@@ -219,19 +219,25 @@ export const getBackgroundSyncStatus = async (): Promise<BackgroundSyncStatus> =
 };
 
 /**
- * Helper: Open IndexedDB
+ * Helper: Open IndexedDB with proper version management
  */
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2); // Increment version to trigger upgrade
     
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const oldVersion = event.oldVersion;
+      
+      console.log(`Upgrading IndexedDB from version ${oldVersion} to 2`);
+      
+      // Create object store if it doesn't exist
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        console.log(`Created object store: ${STORE_NAME}`);
       }
     };
   });

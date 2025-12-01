@@ -17,6 +17,8 @@ import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { SymptomQuickLog } from "@/components/SymptomQuickLog";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
+import { BackgroundMonitorSettings } from "@/components/BackgroundMonitorSettings";
 
 import { MaskDetection } from "@/components/MaskDetection";
 import { Button } from "@/components/ui/button";
@@ -391,8 +393,10 @@ const Index = () => {
             <PHRITrendChart />
             <HealthLogsHistory />
           </TabsContent>
-          <TabsContent value="settings" className="mt-4">
+          <TabsContent value="settings" className="mt-4 space-y-4">
             <NotificationSettings />
+            <PushNotificationSettings />
+            <BackgroundMonitorSettings />
           </TabsContent>
           <TabsContent value="ai-advice" className="mt-4">
             <AIHealthAdvice
