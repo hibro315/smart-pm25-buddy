@@ -14,7 +14,10 @@ verify_jwt = true  # Prevent AI API quota abuse
 verify_jwt = true  # Prevent AI API quota abuse
 
 [functions.weekly-health-summary]
-verify_jwt = true  # Requires authentication to access user health data
+verify_jwt = true
+
+[functions.health-trend-analysis]
+verify_jwt = true
 
 [functions.personalized-health-advice]
 verify_jwt = true  # Prevent AI API quota abuse
