@@ -191,21 +191,29 @@ serve(async (req) => {
       throw new Error('VAPID keys not configured');
     }
 
-    // Create push notification payload
+    // Create rich push notification payload (Shopee-style)
     const payload = JSON.stringify({
       title,
       body,
-      icon: '/icon-192.png',
+      icon: pm25 && pm25 > 150 ? '/icon-512.png' : '/icon-192.png',
       badge: '/icon-192.png',
-      vibrate: vibrate || [300, 100, 300, 100, 300],
+      image: null,
+      vibrate: vibrate || [400, 150, 400, 150, 400],
+      requireInteraction: pm25 && pm25 > 150,
+      silent: false,
+      renotify: true,
+      tag: 'pm25-alert',
+      timestamp: Date.now(),
       data: {
         pm25,
         location,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        url: '/'
       },
       actions: [
-        { action: 'view', title: 'ดูรายละเอียด' },
-        { action: 'dismiss', title: 'ปิด' }
+        { action: 'view', title: '📊 ดูรายละเอียด', icon: '/icon-192.png' },
+        { action: 'map', title: '🗺️ ดูแผนที่', icon: '/icon-192.png' },
+        { action: 'dismiss', title: '❌ ปิด' }
       ]
     });
 
