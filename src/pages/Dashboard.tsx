@@ -6,6 +6,7 @@ import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
 import { WeeklyHealthSummary } from "@/components/WeeklyHealthSummary";
 import { HealthTrendAnalysis } from "@/components/HealthTrendAnalysis";
+import { HealthCorrelationChart } from "@/components/HealthCorrelationChart";
 import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
 import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
@@ -102,6 +103,7 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="trends" className="space-y-6">
+            <HealthCorrelationChart />
             <PHRITrendChart />
             <PHRIComparison />
             <WeeklyHealthSummary />
