@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Geolocation } from '@capacitor/geolocation';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/integrations/supabase/client';
+import { backgroundGeolocationService, Location } from '@/services/BackgroundGeolocationService';
+import { NotificationService } from '@/services/NotificationService';
 
 export interface BackgroundGeolocationConfig {
   enabled: boolean;
@@ -24,8 +23,7 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
   const [isTracking, setIsTracking] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<LocationUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const previousPM25Ref = useRef<number | null>(null);
-  const watcherIdRef = useRef<string | null>(null);
+  const [previousPM25, setPreviousPM25] = useState<number | null>(null);
 
   // Save location history to IndexedDB
   const saveLocationHistory = async (update: LocationUpdate) => {
@@ -73,66 +71,42 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
     }
   };
 
-  // Trigger haptic feedback
-  const triggerHaptic = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Heavy });
-        setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }), 200);
-        setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 400);
-      } catch (error) {
-        console.error('Error triggering haptic:', error);
-      }
-    }
+  // Determine if user has high-risk conditions (would need user profile)
+  const isHighRiskUser = (): boolean => {
+    // This should be passed from config or stored context
+    // For now, return false - will be enhanced with user profile
+    return false;
   };
 
-  // Send local notification with vibration
+  // Send notification using NotificationService
   const sendNotification = async (pm25: number, location: string, isIncrease: boolean) => {
-    if (!Capacitor.isNativePlatform()) return;
+    const isHighRisk = isHighRiskUser();
+    const recommendedTime = calculateRecommendedTime(pm25, isHighRisk);
+    
+    const notificationData = NotificationService.buildNotificationData(
+      pm25,
+      location,
+      isHighRisk,
+      recommendedTime
+    );
 
-    try {
-      const permission = await LocalNotifications.checkPermissions();
-      if (permission.display !== 'granted') {
-        await LocalNotifications.requestPermissions();
-      }
-
-      let title = '';
-      let body = '';
-      
-      if (pm25 > 150) {
-        title = '🚨 อันตราย! ค่าฝุ่น PM2.5 สูงมาก';
-        body = `PM2.5: ${pm25} µg/m³ - หลีกเลี่ยงกิจกรรมกลางแจ้ง\n${location}`;
-      } else if (pm25 > 100) {
-        title = '⚠️ แจ้งเตือน: ค่าฝุ่น PM2.5 สูง';
-        body = `PM2.5: ${pm25} µg/m³ - สวมหน้ากากเมื่ออยู่กลางแจ้ง\n${location}`;
-      } else if (isIncrease) {
-        title = '📈 ค่าฝุ่น PM2.5 เพิ่มขึ้น';
-        body = `PM2.5: ${pm25} µg/m³ (+${pm25 - (previousPM25Ref.current || 0)} µg/m³)\n${location}`;
-      } else {
-        title = '📍 ตรวจสอบค่าฝุ่น PM2.5';
-        body = `PM2.5: ${pm25} µg/m³\n${location}`;
-      }
-
-      await LocalNotifications.schedule({
-        notifications: [{
-          title,
-          body,
-          id: Date.now(),
-          schedule: { at: new Date(Date.now() + 100) },
-          sound: undefined,
-          attachments: undefined,
-          actionTypeId: '',
-          extra: { pm25, location }
-        }]
-      });
-    } catch (error) {
-      console.error('Error sending notification:', error);
-    }
+    await NotificationService.sendAlert(notificationData);
   };
 
-  // Handle location update
-  const handleLocationUpdate = async (latitude: number, longitude: number) => {
+  // Calculate recommended outdoor time
+  const calculateRecommendedTime = (pm25: number, isHighRisk: boolean): number => {
+    if (pm25 <= 37) return Infinity;
+    if (pm25 <= 50) return isHighRisk ? 60 : 120;
+    if (pm25 <= 75) return isHighRisk ? 30 : 60;
+    if (pm25 <= 90) return isHighRisk ? 15 : 30;
+    return isHighRisk ? 5 : 15;
+  };
+
+  // Handle location update from background service
+  const handleLocationUpdate = async (location: Location) => {
     try {
+      const { latitude, longitude } = location;
+      
       // Fetch air quality data
       const airQualityData = await fetchAirQuality(latitude, longitude);
       
@@ -158,14 +132,13 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
       await saveLocationHistory(update);
 
       // Check if PM2.5 increased significantly (>5 µg/m³)
-      const pm25Increase = previousPM25Ref.current 
-        ? currentPM25 - previousPM25Ref.current 
+      const pm25Increase = previousPM25 
+        ? currentPM25 - previousPM25 
         : 0;
       
       const shouldAlert = currentPM25 > pm25Threshold || pm25Increase > 5;
 
       if (shouldAlert) {
-        await triggerHaptic();
         await sendNotification(
           currentPM25, 
           update.location,
@@ -173,14 +146,14 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
         );
       }
 
-      previousPM25Ref.current = currentPM25;
+      setPreviousPM25(currentPM25);
     } catch (error) {
       console.error('Error handling location update:', error);
       setError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
-  // Start background tracking
+  // Start background tracking using background geolocation service
   const startTracking = async () => {
     if (!Capacitor.isNativePlatform()) {
       setError('Background tracking only works on native platforms');
@@ -188,40 +161,28 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
     }
 
     try {
-      // Request location permissions
-      const permission = await Geolocation.checkPermissions();
-      if (permission.location !== 'granted') {
-        const request = await Geolocation.requestPermissions();
-        if (request.location !== 'granted') {
-          throw new Error('Location permission denied');
-        }
-      }
+      // Initialize notification service
+      await NotificationService.initialize();
 
-      // Start position watcher
-      const watcherId = await Geolocation.watchPosition(
+      // Start background geolocation service
+      const success = await backgroundGeolocationService.start(
         {
-          enableHighAccuracy: true,
-          timeout: 30000,
-          maximumAge: 0
+          distanceFilter: config.distanceFilter || 100,
+          desiredAccuracy: 10,
+          interval: 300000, // Check every 5 minutes
+          debug: false,
+          stopOnTerminate: false
         },
-        (position, error) => {
-          if (error) {
-            console.error('Geolocation error:', error);
-            setError(error.message);
-            return;
-          }
-
-          if (position) {
-            handleLocationUpdate(position.coords.latitude, position.coords.longitude);
-          }
-        }
+        handleLocationUpdate
       );
 
-      watcherIdRef.current = watcherId;
-      setIsTracking(true);
-      setError(null);
-      
-      console.log('Background tracking started:', watcherId);
+      if (success) {
+        setIsTracking(true);
+        setError(null);
+        console.log('✅ Background tracking started successfully');
+      } else {
+        throw new Error('Failed to start background tracking');
+      }
     } catch (error) {
       console.error('Error starting background tracking:', error);
       setError(error instanceof Error ? error.message : 'Failed to start tracking');
@@ -232,13 +193,9 @@ export const useBackgroundGeolocation = (config: BackgroundGeolocationConfig) =>
   // Stop background tracking
   const stopTracking = async () => {
     try {
-      if (watcherIdRef.current) {
-        await Geolocation.clearWatch({ id: watcherIdRef.current });
-        watcherIdRef.current = null;
-      }
-      
+      await backgroundGeolocationService.stop();
       setIsTracking(false);
-      console.log('Background tracking stopped');
+      console.log('🛑 Background tracking stopped');
     } catch (error) {
       console.error('Error stopping background tracking:', error);
       setError(error instanceof Error ? error.message : 'Failed to stop tracking');

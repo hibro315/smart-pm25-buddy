@@ -24,11 +24,22 @@ const config: CapacitorConfig = {
     },
     LocalNotifications: {
       smallIcon: 'ic_stat_icon_config_sample',
-      iconColor: '#488AFF'
+      iconColor: '#488AFF',
+      sound: 'default',
+      channelId: 'pm25-alerts'
     },
     Geolocation: {
-      // Allow background location tracking
       requestPermissions: true
+    },
+    BackgroundGeolocation: {
+      notificationTitle: 'ติดตามคุณภาพอากาศ',
+      notificationText: 'กำลังตรวจสอบค่าฝุ่น PM2.5 ในพื้นที่',
+      notificationChannelName: 'Background Location',
+      requestPermissions: true,
+      backgroundMessage: 'แอพกำลังติดตามตำแหน่งของคุณเพื่อเตือนค่าฝุ่น',
+      stale: false,
+      distanceFilter: 100,
+      desiredAccuracy: 10
     }
   }
 };
