@@ -35,18 +35,27 @@ export const useWeeklyHealthSummary = () => {
       // Refresh session to get a fresh token
       const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (refreshError || !session) {
+      if (refreshError || !session?.access_token) {
         toast({
           title: 'กรุณาเข้าสู่ระบบใหม่',
           description: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
           variant: 'destructive',
         });
         setLoading(false);
+        // Redirect to auth page after a delay
+        setTimeout(() => {
+          window.location.href = '/auth';
+        }, 2000);
         return;
       }
 
+      console.log("✅ Session refreshed for weekly summary");
+
       const { data, error } = await supabase.functions.invoke('weekly-health-summary', {
         body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
