@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['IBM Plex Sans Thai', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Prompt', 'IBM Plex Sans Thai', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -68,11 +72,15 @@ export default {
         "gradient-hero": "var(--gradient-hero)",
         "gradient-sky": "var(--gradient-sky)",
         "gradient-alert": "var(--gradient-alert)",
+        "gradient-card": "var(--gradient-card)",
+        "gradient-primary": "var(--gradient-primary)",
       },
       boxShadow: {
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",
         alert: "var(--shadow-alert)",
+        hover: "var(--shadow-hover)",
+        glow: "var(--shadow-glow)",
       },
       transitionProperty: {
         smooth: "var(--transition-smooth)",
