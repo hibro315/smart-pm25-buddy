@@ -32,9 +32,10 @@ export const useWeeklyHealthSummary = () => {
   const generateSummary = async () => {
     setLoading(true);
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Check and refresh session if needed
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (authError || !user) {
+      if (sessionError || !session) {
         toast({
           title: 'กรุณาเข้าสู่ระบบ',
           description: 'คุณต้องเข้าสู่ระบบก่อนใช้ฟีเจอร์นี้',
