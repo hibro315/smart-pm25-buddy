@@ -1,202 +1,447 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useHealthProfile, HealthProfile } from '@/hooks/useHealthProfile';
-import { User, Heart, Activity, Shield, Wind } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { useHealthProfile } from '@/hooks/useHealthProfile';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { User, Activity, Wind, Heart } from 'lucide-react';
 
 const CHRONIC_CONDITIONS = [
-  { id: 'asthma', label: 'โรคหอบหืด (Asthma)' },
-  { id: 'allergy', label: 'โรคภูมิแพ้ (Allergy)' },
-  { id: 'COPD', label: 'โรคปอดอุดกั้นเรื้อรัง (COPD)' },
-  { id: 'heart disease', label: 'โรคหัวใจ (Heart Disease)' },
-  { id: 'hypertension', label: 'ความดันโลหิตสูง' },
+  { id: 'asthma', label: 'หอบหืด' },
+  { id: 'allergy', label: 'ภูมิแพ้' },
+  { id: 'sinusitis', label: 'ไซนัสอักเสบ' },
+  { id: 'heart_disease', label: 'โรคหัวใจ' },
   { id: 'diabetes', label: 'เบาหวาน' },
+  { id: 'hypertension', label: 'ความดันโลหิตสูง' },
+  { id: 'copd', label: 'ปอดอุดกั้นเรื้อรัง' },
+  { id: 'other', label: 'อื่นๆ' },
 ];
 
 export const EnhancedHealthProfileForm = () => {
-  const { profile, saving, saveProfile } = useHealthProfile();
-  const [formData, setFormData] = useState<HealthProfile>(profile);
+  const { profile, saveProfile, loading } = useHealthProfile();
+  
+  // State for all form fields
+  const [name, setName] = useState(profile?.name || '');
+  const [age, setAge] = useState(profile?.age || 30);
+  const [gender, setGender] = useState<'male' | 'female' | 'other'>(profile?.gender || 'male');
+  const [height, setHeight] = useState(profile?.height || 0);
+  const [weight, setWeight] = useState(profile?.weight || 0);
+  const [occupation, setOccupation] = useState(profile?.occupation || '');
+  const [workEnvironment, setWorkEnvironment] = useState<'outdoor' | 'indoor' | 'mixed'>(profile?.workEnvironment || 'indoor');
+  const [location, setLocation] = useState(profile?.location || '');
+  
+  const [chronicConditions, setChronicConditions] = useState<string[]>(profile?.chronicConditions || []);
+  const [allergies, setAllergies] = useState(profile?.allergies || '');
+  const [immunoCompromised, setImmunoCompromised] = useState(profile?.immunoCompromised || false);
+  const [smokingStatus, setSmokingStatus] = useState<'non_smoker' | 'occasional' | 'regular'>(profile?.smokingStatus || 'non_smoker');
+  const [alcoholConsumption, setAlcoholConsumption] = useState<'none' | 'occasional' | 'regular'>(profile?.alcoholConsumption || 'none');
+  const [exerciseFrequency, setExerciseFrequency] = useState(profile?.exerciseFrequency || 0);
+  
+  const [dustSensitivity, setDustSensitivity] = useState<'low' | 'medium' | 'high'>(profile?.dustSensitivity || 'medium');
+  const [hasAirPurifier, setHasAirPurifier] = useState(profile?.hasAirPurifier || false);
+  const [maskUsage, setMaskUsage] = useState<'none' | 'regular' | 'n95' | 'kf94'>(profile?.maskUsage || 'none');
+  const [outdoorTimeDaily, setOutdoorTimeDaily] = useState(profile?.outdoorTimeDaily || 60);
+  const [physicalActivity, setPhysicalActivity] = useState<'sedentary' | 'moderate' | 'active'>(profile?.physicalActivity || 'moderate');
+
+  // Calculate BMI
+  const bmi = height && weight ? (weight / ((height / 100) ** 2)).toFixed(1) : '0';
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name || '');
+      setAge(profile.age);
+      setGender(profile.gender);
+      setHeight(profile.height || 0);
+      setWeight(profile.weight || 0);
+      setOccupation(profile.occupation || '');
+      setWorkEnvironment(profile.workEnvironment || 'indoor');
+      setLocation(profile.location || '');
+      setChronicConditions(profile.chronicConditions);
+      setAllergies(profile.allergies || '');
+      setImmunoCompromised(profile.immunoCompromised || false);
+      setSmokingStatus(profile.smokingStatus || 'non_smoker');
+      setAlcoholConsumption(profile.alcoholConsumption || 'none');
+      setExerciseFrequency(profile.exerciseFrequency || 0);
+      setDustSensitivity(profile.dustSensitivity);
+      setHasAirPurifier(profile.hasAirPurifier);
+      setMaskUsage(profile.maskUsage || 'none');
+      setOutdoorTimeDaily(profile.outdoorTimeDaily || 60);
+      setPhysicalActivity(profile.physicalActivity);
+    }
+  }, [profile]);
 
   const handleConditionToggle = (conditionId: string) => {
-    const updated = formData.chronicConditions.includes(conditionId)
-      ? formData.chronicConditions.filter(id => id !== conditionId)
-      : [...formData.chronicConditions, conditionId];
-    setFormData({ ...formData, chronicConditions: updated });
+    setChronicConditions(prev =>
+      prev.includes(conditionId)
+        ? prev.filter(id => id !== conditionId)
+        : [...prev, conditionId]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveProfile(formData);
+    
+    await saveProfile({
+      name,
+      age,
+      gender,
+      height: height || undefined,
+      weight: weight || undefined,
+      occupation: occupation || undefined,
+      workEnvironment: workEnvironment || undefined,
+      location: location || undefined,
+      chronicConditions,
+      allergies: allergies || undefined,
+      immunoCompromised,
+      smokingStatus,
+      alcoholConsumption,
+      exerciseFrequency,
+      dustSensitivity,
+      hasAirPurifier,
+      maskUsage,
+      outdoorTimeDaily,
+      physicalActivity,
+    });
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          โปรไฟล์สุขภาพส่วนบุคคล
-        </CardTitle>
-        <CardDescription>
-          กรุณากรอกข้อมูลเพื่อให้ระบบคำนวณความเสี่ยง PHRI ได้แม่นยำ
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="age">อายุ (ปี) *</Label>
-              <Input
-                id="age"
-                type="number"
-                min="1"
-                max="150"
-                value={formData.age}
-                onChange={(e) => setFormData({ ...formData, age: parseInt(e.target.value) || 0 })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="gender">เพศ *</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => setFormData({ ...formData, gender: value })}
-              >
-                <SelectTrigger id="gender">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">ชาย</SelectItem>
-                  <SelectItem value="female">หญิง</SelectItem>
-                  <SelectItem value="other">อื่นๆ</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="weight">น้ำหนัก (กก.)</Label>
-              <Input
-                id="weight"
-                type="number"
-                min="1"
-                max="300"
-                value={formData.weight || ''}
-                onChange={(e) => setFormData({ ...formData, weight: parseInt(e.target.value) || undefined })}
-              />
-            </div>
-          </div>
+    <Card className="p-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Heart className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-display font-bold">โปรไฟล์สุขภาพ</h2>
+        </div>
 
-          {/* Chronic Conditions */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Heart className="h-4 w-4" />
-              โรคประจำตัว
-            </Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {CHRONIC_CONDITIONS.map((condition) => (
-                <div key={condition.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={condition.id}
-                    checked={formData.chronicConditions.includes(condition.id)}
-                    onCheckedChange={() => handleConditionToggle(condition.id)}
-                  />
-                  <label
-                    htmlFor={condition.id}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {condition.label}
-                  </label>
+        <Tabs defaultValue="personal" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="personal" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">ข้อมูลส่วนตัว</span>
+            </TabsTrigger>
+            <TabsTrigger value="health" className="flex items-center gap-2">
+              <Heart className="w-4 h-4" />
+              <span className="hidden sm:inline">สุขภาพ</span>
+            </TabsTrigger>
+            <TabsTrigger value="environment" className="flex items-center gap-2">
+              <Wind className="w-4 h-4" />
+              <span className="hidden sm:inline">สิ่งแวดล้อม</span>
+            </TabsTrigger>
+            <TabsTrigger value="lifestyle" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">ไลฟ์สไตล์</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: ข้อมูลส่วนตัวพื้นฐาน */}
+          <TabsContent value="personal" className="space-y-4 mt-6">
+            <div>
+              <Label htmlFor="name">ชื่อ-นามสกุล</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="กรอกชื่อของคุณ"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="age">อายุ (ปี)</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(Number(e.target.value))}
+                  min={1}
+                  max={150}
+                />
+              </div>
+
+              <div>
+                <Label>เพศ</Label>
+                <RadioGroup value={gender} onValueChange={(v) => setGender(v as any)}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="male" id="male" />
+                    <Label htmlFor="male">ชาย</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="female" id="female" />
+                    <Label htmlFor="female">หญิง</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="other" id="other" />
+                    <Label htmlFor="other">อื่นๆ</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="height">ส่วนสูง (ซม.)</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  value={height || ''}
+                  onChange={(e) => setHeight(Number(e.target.value))}
+                  placeholder="เช่น 170"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="weight">น้ำหนัก (กก.)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  value={weight || ''}
+                  onChange={(e) => setWeight(Number(e.target.value))}
+                  placeholder="เช่น 65"
+                />
+              </div>
+
+              <div>
+                <Label>BMI</Label>
+                <Input value={bmi} disabled className="bg-muted" />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="occupation">อาชีพ</Label>
+              <Input
+                id="occupation"
+                value={occupation}
+                onChange={(e) => setOccupation(e.target.value)}
+                placeholder="เช่น พนักงานบริษัท, นักเรียน"
+              />
+            </div>
+
+            <div>
+              <Label>ลักษณะการทำงาน</Label>
+              <RadioGroup value={workEnvironment} onValueChange={(v) => setWorkEnvironment(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="indoor" id="indoor" />
+                  <Label htmlFor="indoor">ในอาคาร</Label>
                 </div>
-              ))}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="outdoor" id="outdoor" />
+                  <Label htmlFor="outdoor">กลางแจ้ง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="mixed" id="mixed" />
+                  <Label htmlFor="mixed">ทั้งสองแบบ</Label>
+                </div>
+              </RadioGroup>
             </div>
-          </div>
 
-          {/* Dust Sensitivity */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Wind className="h-4 w-4" />
-              ความไวต่อฝุ่น *
-            </Label>
-            <RadioGroup
-              value={formData.dustSensitivity}
-              onValueChange={(value: 'low' | 'medium' | 'high') =>
-                setFormData({ ...formData, dustSensitivity: value })
-              }
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="low" id="low" />
-                <Label htmlFor="low">ต่ำ (ไม่ค่อยมีปัญหา)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="medium" id="medium" />
-                <Label htmlFor="medium">ปานกลาง (มีปัญหาบางครั้ง)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="high" id="high" />
-                <Label htmlFor="high">สูง (มีปัญหาบ่อย)</Label>
-              </div>
-            </RadioGroup>
-          </div>
+            <div>
+              <Label htmlFor="location">ที่อยู่ปัจจุบัน (อำเภอ/เขต)</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="เช่น เขตบางรัก, อ.เมือง"
+              />
+            </div>
+          </TabsContent>
 
-          {/* Physical Activity */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              ระดับกิจกรรมทางกาย *
-            </Label>
-            <RadioGroup
-              value={formData.physicalActivity}
-              onValueChange={(value: 'sedentary' | 'moderate' | 'active') =>
-                setFormData({ ...formData, physicalActivity: value })
-              }
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="sedentary" id="sedentary" />
-                <Label htmlFor="sedentary">นั่งทำงาน/ไม่ค่อยเคลื่อนไหว</Label>
+          {/* Tab 2: ประวัติสุขภาพพื้นฐาน */}
+          <TabsContent value="health" className="space-y-4 mt-6">
+            <div>
+              <Label className="mb-3 block">โรคประจำตัว</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {CHRONIC_CONDITIONS.map((condition) => (
+                  <div key={condition.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={condition.id}
+                      checked={chronicConditions.includes(condition.id)}
+                      onCheckedChange={() => handleConditionToggle(condition.id)}
+                    />
+                    <Label htmlFor={condition.id} className="font-normal cursor-pointer">
+                      {condition.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="moderate" id="moderate" />
-                <Label htmlFor="moderate">ปานกลาง (เดินบ้าง ยืนบ้าง)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="active" id="active" />
-                <Label htmlFor="active">ออกกำลังกายเป็นประจำ</Label>
-              </div>
-            </RadioGroup>
-          </div>
+            </div>
 
-          {/* Protective Equipment */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              อุปกรณ์ป้องกัน
-            </Label>
+            <div>
+              <Label htmlFor="allergies">ประวัติการแพ้ยา/อาหาร</Label>
+              <Textarea
+                id="allergies"
+                value={allergies}
+                onChange={(e) => setAllergies(e.target.value)}
+                placeholder="เช่น แพ้เพนิซิลิน, แพ้กุ้ง"
+                rows={3}
+              />
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
-                id="airPurifier"
-                checked={formData.hasAirPurifier}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, hasAirPurifier: checked as boolean })
-                }
+                id="immunoCompromised"
+                checked={immunoCompromised}
+                onCheckedChange={(checked) => setImmunoCompromised(checked as boolean)}
               />
-              <label
-                htmlFor="airPurifier"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                มีเครื่องฟอกอากาศในบ้าน
-              </label>
+              <Label htmlFor="immunoCompromised" className="font-normal cursor-pointer">
+                มีภาวะภูมิคุ้มกันบกพร่อง
+              </Label>
             </div>
-          </div>
 
-          <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึกโปรไฟล์'}
-          </Button>
-        </form>
-      </CardContent>
+            <div>
+              <Label>การสูบบุหรี่</Label>
+              <RadioGroup value={smokingStatus} onValueChange={(v) => setSmokingStatus(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="non_smoker" id="non_smoker" />
+                  <Label htmlFor="non_smoker">ไม่สูบ</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="occasional" id="smoke_occasional" />
+                  <Label htmlFor="smoke_occasional">สูบนาน ๆ ครั้ง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="regular" id="smoke_regular" />
+                  <Label htmlFor="smoke_regular">สูบประจำ</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label>การดื่มแอลกอฮอล์</Label>
+              <RadioGroup value={alcoholConsumption} onValueChange={(v) => setAlcoholConsumption(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="alcohol_none" />
+                  <Label htmlFor="alcohol_none">ไม่ดื่ม</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="occasional" id="alcohol_occasional" />
+                  <Label htmlFor="alcohol_occasional">ดื่มเป็นครั้งคราว</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="regular" id="alcohol_regular" />
+                  <Label htmlFor="alcohol_regular">ดื่มประจำ</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label htmlFor="exerciseFrequency">การออกกำลังกาย (ครั้ง/สัปดาห์)</Label>
+              <Input
+                id="exerciseFrequency"
+                type="number"
+                value={exerciseFrequency}
+                onChange={(e) => setExerciseFrequency(Number(e.target.value))}
+                min={0}
+                max={30}
+              />
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: ปัจจัยเสี่ยงด้านคุณภาพอากาศ */}
+          <TabsContent value="environment" className="space-y-4 mt-6">
+            <div>
+              <Label>ความไวต่อฝุ่น/อากาศเย็น</Label>
+              <RadioGroup value={dustSensitivity} onValueChange={(v) => setDustSensitivity(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="low" id="dust_low" />
+                  <Label htmlFor="dust_low">ต่ำ</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="medium" id="dust_medium" />
+                  <Label htmlFor="dust_medium">ปานกลาง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="high" id="dust_high" />
+                  <Label htmlFor="dust_high">สูง</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hasAirPurifier"
+                checked={hasAirPurifier}
+                onCheckedChange={(checked) => setHasAirPurifier(checked as boolean)}
+              />
+              <Label htmlFor="hasAirPurifier" className="font-normal cursor-pointer">
+                มีเครื่องฟอกอากาศในบ้าน
+              </Label>
+            </div>
+
+            <div>
+              <Label>การใช้หน้ากากอนามัย</Label>
+              <RadioGroup value={maskUsage} onValueChange={(v) => setMaskUsage(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="mask_none" />
+                  <Label htmlFor="mask_none">ไม่ใช้</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="regular" id="mask_regular" />
+                  <Label htmlFor="mask_regular">หน้ากากธรรมดา</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="n95" id="mask_n95" />
+                  <Label htmlFor="mask_n95">N95</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="kf94" id="mask_kf94" />
+                  <Label htmlFor="mask_kf94">KF94</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label htmlFor="outdoorTimeDaily">เวลาอยู่กลางแจ้งต่อวัน (นาที)</Label>
+              <Input
+                id="outdoorTimeDaily"
+                type="number"
+                value={outdoorTimeDaily}
+                onChange={(e) => setOutdoorTimeDaily(Number(e.target.value))}
+                min={0}
+                max={1440}
+              />
+            </div>
+          </TabsContent>
+
+          {/* Tab 4: ไลฟ์สไตล์และกิจกรรม */}
+          <TabsContent value="lifestyle" className="space-y-4 mt-6">
+            <div>
+              <Label>ระดับกิจกรรมทางกาย</Label>
+              <RadioGroup value={physicalActivity} onValueChange={(v) => setPhysicalActivity(v as any)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="sedentary" id="sedentary" />
+                  <Label htmlFor="sedentary">นั่งทำงาน ไม่ค่อยเคลื่อนไหว</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="moderate" id="moderate" />
+                  <Label htmlFor="moderate">ปานกลาง เดินเคลื่อนไหวบ้าง</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="active" id="active" />
+                  <Label htmlFor="active">มีการออกแรงหรือเดินมาก</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <h4 className="font-semibold">สรุปข้อมูล</h4>
+              <div className="text-sm space-y-1">
+                <p>• อายุ: {age} ปี | เพศ: {gender === 'male' ? 'ชาย' : gender === 'female' ? 'หญิง' : 'อื่นๆ'}</p>
+                {height && weight && <p>• BMI: {bmi} {Number(bmi) < 18.5 ? '(น้ำหนักต่ำ)' : Number(bmi) < 25 ? '(ปกติ)' : Number(bmi) < 30 ? '(น้ำหนักเกิน)' : '(อ้วน)'}</p>}
+                <p>• โรคประจำตัว: {chronicConditions.length} โรค</p>
+                <p>• ความไวต่อฝุ่น: {dustSensitivity === 'low' ? 'ต่ำ' : dustSensitivity === 'medium' ? 'ปานกลาง' : 'สูง'}</p>
+                <p>• กิจกรรมทางกาย: {physicalActivity === 'sedentary' ? 'นั่งทำงาน' : physicalActivity === 'moderate' ? 'ปานกลาง' : 'มาก'}</p>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'กำลังบันทึก...' : 'บันทึกโปรไฟล์'}
+        </Button>
+      </form>
     </Card>
   );
 };

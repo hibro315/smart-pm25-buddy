@@ -2,18 +2,8 @@ import { z } from 'zod';
 
 // Health Profile Validation Schema
 export const healthProfileSchema = z.object({
-  chronicConditions: z.array(z.string()).max(10, 'สามารถเลือกได้สูงสุด 10 โรค'),
-  dustSensitivity: z.union([
-    z.literal('low'),
-    z.literal('medium'),
-    z.literal('high'),
-  ]),
-  physicalActivity: z.union([
-    z.literal('sedentary'),
-    z.literal('moderate'),
-    z.literal('active'),
-  ]),
-  hasAirPurifier: z.boolean(),
+  // ข้อมูลส่วนตัวพื้นฐาน
+  name: z.string().min(1, 'กรุณากรอกชื่อ').optional(),
   age: z.number()
     .min(1, 'อายุต้องมากกว่า 0 ปี')
     .max(150, 'อายุต้องน้อยกว่า 150 ปี')
@@ -23,10 +13,57 @@ export const healthProfileSchema = z.object({
     z.literal('female'),
     z.literal('other'),
   ]),
+  height: z.number()
+    .min(50, 'ส่วนสูงต้องมากกว่า 50 ซม.')
+    .max(250, 'ส่วนสูงต้องน้อยกว่า 250 ซม.')
+    .optional(),
   weight: z.number()
     .min(1, 'น้ำหนักต้องมากกว่า 0 กก.')
     .max(500, 'น้ำหนักต้องน้อยกว่า 500 กก.')
     .optional(),
+  occupation: z.string().optional(),
+  workEnvironment: z.union([
+    z.literal('outdoor'),
+    z.literal('indoor'),
+    z.literal('mixed'),
+  ]).optional(),
+  location: z.string().optional(),
+  
+  // ประวัติสุขภาพพื้นฐาน
+  chronicConditions: z.array(z.string()).max(10, 'สามารถเลือกได้สูงสุด 10 โรค'),
+  allergies: z.string().optional(),
+  immunoCompromised: z.boolean().optional(),
+  smokingStatus: z.union([
+    z.literal('non_smoker'),
+    z.literal('occasional'),
+    z.literal('regular'),
+  ]).optional(),
+  alcoholConsumption: z.union([
+    z.literal('none'),
+    z.literal('occasional'),
+    z.literal('regular'),
+  ]).optional(),
+  exerciseFrequency: z.number().min(0).max(30).optional(),
+  
+  // ปัจจัยเสี่ยงด้านคุณภาพอากาศ
+  dustSensitivity: z.union([
+    z.literal('low'),
+    z.literal('medium'),
+    z.literal('high'),
+  ]),
+  hasAirPurifier: z.boolean(),
+  maskUsage: z.union([
+    z.literal('none'),
+    z.literal('regular'),
+    z.literal('n95'),
+    z.literal('kf94'),
+  ]).optional(),
+  outdoorTimeDaily: z.number().min(0).max(1440).optional(),
+  physicalActivity: z.union([
+    z.literal('sedentary'),
+    z.literal('moderate'),
+    z.literal('active'),
+  ]),
 });
 
 export type HealthProfileInput = z.infer<typeof healthProfileSchema>;
