@@ -254,6 +254,84 @@ export type Database = {
         }
         Relationships: []
       }
+      health_profiles: {
+        Row: {
+          age: number
+          alcohol_consumption: string | null
+          allergies: string | null
+          chronic_conditions: string[] | null
+          created_at: string | null
+          dust_sensitivity: string
+          exercise_frequency: number | null
+          gender: string
+          has_air_purifier: boolean
+          height: number | null
+          id: string
+          immuno_compromised: boolean | null
+          location: string | null
+          mask_usage: string | null
+          name: string | null
+          occupation: string | null
+          outdoor_time_daily: number | null
+          physical_activity: string
+          smoking_status: string | null
+          updated_at: string | null
+          user_id: string
+          weight: number | null
+          work_environment: string | null
+        }
+        Insert: {
+          age: number
+          alcohol_consumption?: string | null
+          allergies?: string | null
+          chronic_conditions?: string[] | null
+          created_at?: string | null
+          dust_sensitivity: string
+          exercise_frequency?: number | null
+          gender: string
+          has_air_purifier?: boolean
+          height?: number | null
+          id?: string
+          immuno_compromised?: boolean | null
+          location?: string | null
+          mask_usage?: string | null
+          name?: string | null
+          occupation?: string | null
+          outdoor_time_daily?: number | null
+          physical_activity: string
+          smoking_status?: string | null
+          updated_at?: string | null
+          user_id: string
+          weight?: number | null
+          work_environment?: string | null
+        }
+        Update: {
+          age?: number
+          alcohol_consumption?: string | null
+          allergies?: string | null
+          chronic_conditions?: string[] | null
+          created_at?: string | null
+          dust_sensitivity?: string
+          exercise_frequency?: number | null
+          gender?: string
+          has_air_purifier?: boolean
+          height?: number | null
+          id?: string
+          immuno_compromised?: boolean | null
+          location?: string | null
+          mask_usage?: string | null
+          name?: string | null
+          occupation?: string | null
+          outdoor_time_daily?: number | null
+          physical_activity?: string
+          smoking_status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          weight?: number | null
+          work_environment?: string | null
+        }
+        Relationships: []
+      }
       notification_settings: {
         Row: {
           aqi_threshold: number | null

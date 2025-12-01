@@ -52,7 +52,7 @@ export const useHealthProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Load profile from localStorage on mount
+  // Load profile from Supabase
   useEffect(() => {
     loadProfile();
   }, []);
@@ -61,36 +61,10 @@ export const useHealthProfile = () => {
     try {
       setLoading(true);
       
-      // Try to load from Supabase if user is authenticated
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (authError) {
-        throw new Error(`Authentication error: ${authError.message}`);
-      }
-      
-      if (user) {
-        // Load from Supabase (future implementation)
-        // For now, load from localStorage with validation
-        const stored = localStorage.getItem('healthProfile');
-        if (stored) {
-          try {
-            const parsedProfile = JSON.parse(stored);
-            // Validate the stored profile
-            const validatedProfile = healthProfileSchema.parse(parsedProfile);
-            setProfile(validatedProfile as HealthProfile);
-          } catch (validationError) {
-            console.error('Invalid profile data in localStorage:', validationError);
-            // Clear invalid data
-            localStorage.removeItem('healthProfile');
-            toast({
-              title: 'ข้อมูลโปรไฟล์ไม่ถูกต้อง',
-              description: 'กรุณาตั้งค่าโปรไฟล์ใหม่',
-              variant: 'destructive',
-            });
-          }
-        }
-      } else {
-        // Load from localStorage for non-authenticated users with validation
+      if (authError || !user) {
+        // Load from localStorage if not authenticated
         const stored = localStorage.getItem('healthProfile');
         if (stored) {
           try {
@@ -100,6 +74,59 @@ export const useHealthProfile = () => {
           } catch (validationError) {
             console.error('Invalid profile data:', validationError);
             localStorage.removeItem('healthProfile');
+          }
+        }
+        return;
+      }
+
+      // Load from Supabase
+      const { data: profileData, error } = await supabase
+        .from('health_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, which is okay
+        throw error;
+      }
+
+      if (profileData) {
+        const mappedProfile: HealthProfile = {
+          name: profileData.name,
+          age: profileData.age,
+          gender: profileData.gender as 'male' | 'female' | 'other',
+          height: profileData.height,
+          weight: profileData.weight,
+          occupation: profileData.occupation,
+          workEnvironment: profileData.work_environment as 'outdoor' | 'indoor' | 'mixed' | undefined,
+          location: profileData.location,
+          chronicConditions: profileData.chronic_conditions || [],
+          allergies: profileData.allergies,
+          immunoCompromised: profileData.immuno_compromised,
+          smokingStatus: profileData.smoking_status as 'non_smoker' | 'occasional' | 'regular' | undefined,
+          alcoholConsumption: profileData.alcohol_consumption as 'none' | 'occasional' | 'regular' | undefined,
+          exerciseFrequency: profileData.exercise_frequency,
+          dustSensitivity: profileData.dust_sensitivity as 'low' | 'medium' | 'high',
+          hasAirPurifier: profileData.has_air_purifier,
+          maskUsage: profileData.mask_usage as 'none' | 'regular' | 'n95' | 'kf94' | undefined,
+          outdoorTimeDaily: profileData.outdoor_time_daily,
+          physicalActivity: profileData.physical_activity as 'sedentary' | 'moderate' | 'active',
+          userId: profileData.user_id,
+          createdAt: profileData.created_at,
+          updatedAt: profileData.updated_at,
+        };
+        setProfile(mappedProfile);
+      } else {
+        // Try loading from localStorage as fallback
+        const stored = localStorage.getItem('healthProfile');
+        if (stored) {
+          try {
+            const parsedProfile = JSON.parse(stored);
+            const validatedProfile = healthProfileSchema.parse(parsedProfile);
+            setProfile(validatedProfile as HealthProfile);
+          } catch (validationError) {
+            console.error('Invalid profile data:', validationError);
           }
         }
       }
@@ -128,27 +155,57 @@ export const useHealthProfile = () => {
       // Validate with zod schema
       const validatedProfile = healthProfileSchema.parse(sanitizedProfile);
 
-      // Save to localStorage
+      // Save to localStorage as backup
       localStorage.setItem('healthProfile', JSON.stringify(validatedProfile));
       setProfile(validatedProfile as HealthProfile);
 
-      // Try to save to Supabase if user is authenticated
+      // Save to Supabase if user is authenticated
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (authError) {
+      if (authError || !user) {
         console.warn('Not authenticated, profile saved locally only');
-      } else if (user) {
-        // Future: Save to Supabase table with proper error handling
-        // const { error: dbError } = await supabase.from('health_profiles').upsert({
-        //   user_id: user.id,
-        //   ...validatedProfile,
-        // });
-        // if (dbError) throw dbError;
+        toast({
+          title: 'บันทึกโปรไฟล์สำเร็จ',
+          description: 'ข้อมูลถูกบันทึกในเครื่องของคุณ',
+        });
+        return true;
       }
+
+      // Map to database column names
+      const dbProfile = {
+        user_id: user.id,
+        name: validatedProfile.name,
+        age: validatedProfile.age,
+        gender: validatedProfile.gender,
+        height: validatedProfile.height,
+        weight: validatedProfile.weight,
+        occupation: validatedProfile.occupation,
+        work_environment: validatedProfile.workEnvironment,
+        location: validatedProfile.location,
+        chronic_conditions: validatedProfile.chronicConditions,
+        allergies: validatedProfile.allergies,
+        immuno_compromised: validatedProfile.immunoCompromised,
+        smoking_status: validatedProfile.smokingStatus,
+        alcohol_consumption: validatedProfile.alcoholConsumption,
+        exercise_frequency: validatedProfile.exerciseFrequency,
+        dust_sensitivity: validatedProfile.dustSensitivity,
+        has_air_purifier: validatedProfile.hasAirPurifier,
+        mask_usage: validatedProfile.maskUsage,
+        outdoor_time_daily: validatedProfile.outdoorTimeDaily,
+        physical_activity: validatedProfile.physicalActivity,
+      };
+
+      const { error: dbError } = await supabase
+        .from('health_profiles')
+        .upsert(dbProfile, {
+          onConflict: 'user_id'
+        });
+
+      if (dbError) throw dbError;
 
       toast({
         title: 'บันทึกโปรไฟล์สำเร็จ',
-        description: 'ข้อมูลสุขภาพของคุณถูกบันทึกแล้ว',
+        description: 'ข้อมูลสุขภาพของคุณถูกบันทึกใน Cloud แล้ว',
       });
 
       return true;
