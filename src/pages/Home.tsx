@@ -9,7 +9,7 @@ import { Activity, MapPin, MessageSquare, Bell, TrendingUp, Wind, Droplets, Ther
 import { Link } from "react-router-dom";
 
 const Home = () => {
-  const { data, loading, refetch } = useAirQualityWithFallback();
+  const { data, loading, refreshing, refetch } = useAirQualityWithFallback();
   const { profile } = useHealthProfile();
   const [greeting, setGreeting] = useState("");
 
@@ -35,7 +35,12 @@ const Home = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Hero Section */}
       <div className="relative bg-gradient-primary text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
+        {refreshing && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/20 z-10">
+            <div className="h-full bg-white animate-pulse w-1/2" />
+          </div>
+        )}
+        <div className="absolute inset-0 opacity-10">{/* ... keep existing code */}
           <div className="absolute inset-0" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
           }} />
