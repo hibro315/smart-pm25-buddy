@@ -1,49 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Shield, AlertCircle } from 'lucide-react';
-import { usePHRI } from '@/hooks/usePHRI';
+import { AlertTriangle, Shield, AlertCircle, AlertOctagon } from 'lucide-react';
+import { useEnhancedPHRI, EnhancedPHRIResult } from '@/hooks/useEnhancedPHRI';
 import { useEffect, useState } from 'react';
 
 interface PHRIDisplayProps {
-  phri?: number;
-  riskLevel?: 'safe' | 'moderate' | 'high';
-  advice?: string;
+  result?: EnhancedPHRIResult;
 }
 
-export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
-  const { fetchHealthLogs } = usePHRI();
-  const [latestLog, setLatestLog] = useState<any>(null);
-
-  useEffect(() => {
-    const loadLatestLog = async () => {
-      try {
-        const logs = await fetchHealthLogs(1);
-        if (logs && logs.length > 0) {
-          setLatestLog(logs[0]);
-        }
-      } catch (error) {
-        console.error('Error loading latest log:', error);
-      }
-    };
-    
-    if (!phri) {
-      loadLatestLog();
-    }
-  }, [phri, fetchHealthLogs]);
-
-  const displayPHRI = phri ?? latestLog?.phri;
-  const displayRiskLevel = riskLevel ?? (
-    displayPHRI >= 100 ? 'high' : displayPHRI >= 50 ? 'moderate' : 'safe'
-  );
-  const displayAdvice = advice ?? (
-    displayPHRI >= 100 
-      ? 'ควรพักในร่มทันที และสังเกตอาการผิดปกติ'
-      : displayPHRI >= 50
-      ? 'ควรสวมหน้ากาก N95 และลดเวลาอยู่กลางแจ้ง'
-      : 'สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ'
-  );
-
-  if (!displayPHRI) {
+export const PHRIDisplay = ({ result }: PHRIDisplayProps) => {
+  if (!result) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -55,10 +21,12 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
   }
 
   const getIcon = () => {
-    switch (displayRiskLevel) {
-      case 'high':
+    switch (result.alertLevel) {
+      case 'emergency':
+        return <AlertOctagon className="h-8 w-8" />;
+      case 'urgent':
         return <AlertTriangle className="h-8 w-8" />;
-      case 'moderate':
+      case 'warning':
         return <AlertCircle className="h-8 w-8" />;
       default:
         return <Shield className="h-8 w-8" />;
@@ -66,10 +34,12 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
   };
 
   const getColor = () => {
-    switch (displayRiskLevel) {
-      case 'high':
+    switch (result.alertLevel) {
+      case 'emergency':
         return 'hsl(var(--destructive))';
-      case 'moderate':
+      case 'urgent':
+        return 'hsl(var(--destructive))';
+      case 'warning':
         return 'hsl(var(--warning))';
       default:
         return 'hsl(var(--success))';
@@ -77,10 +47,12 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
   };
 
   const getBadgeVariant = () => {
-    switch (displayRiskLevel) {
-      case 'high':
+    switch (result.alertLevel) {
+      case 'emergency':
         return 'destructive';
-      case 'moderate':
+      case 'urgent':
+        return 'destructive';
+      case 'warning':
         return 'warning';
       default:
         return 'default';
@@ -88,11 +60,13 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
   };
 
   const getRiskText = () => {
-    switch (displayRiskLevel) {
-      case 'high':
-        return 'เสี่ยงสูง';
-      case 'moderate':
-        return 'เสี่ยงปานกลาง';
+    switch (result.alertLevel) {
+      case 'emergency':
+        return 'ฉุกเฉิน';
+      case 'urgent':
+        return 'เร่งด่วน';
+      case 'warning':
+        return 'เตือน';
       default:
         return 'ปลอดภัย';
     }
@@ -117,7 +91,7 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
             className="text-6xl font-bold mb-2" 
             style={{ color: getColor() }}
           >
-            {displayPHRI.toFixed(1)}
+            {result.phri.toFixed(1)}
           </div>
           <div className="text-sm text-muted-foreground">PHRI Index</div>
         </div>
@@ -130,28 +104,38 @@ export const PHRIDisplay = ({ phri, riskLevel, advice }: PHRIDisplayProps) => {
           }}
         >
           <p className="text-sm font-medium text-center">
-            {displayAdvice}
+            {result.recommendation}
           </p>
         </div>
+
+        {result.personalizedAdvice.length > 0 && (
+          <div className="space-y-1">
+            {result.personalizedAdvice.map((advice, index) => (
+              <p key={index} className="text-xs text-muted-foreground">
+                {advice}
+              </p>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground text-center pt-2 border-t">
           <div>
             <div className="font-semibold" style={{ color: 'hsl(var(--success))' }}>
-              &lt; 50
+              &lt; 3
             </div>
             <div>ปลอดภัย</div>
           </div>
           <div>
             <div className="font-semibold" style={{ color: 'hsl(var(--warning))' }}>
-              50-100
+              3-6
             </div>
-            <div>ปานกลาง</div>
+            <div>เตือน</div>
           </div>
           <div>
             <div className="font-semibold" style={{ color: 'hsl(var(--destructive))' }}>
-              &gt; 100
+              &gt; 6
             </div>
-            <div>เสี่ยงสูง</div>
+            <div>อันตราย</div>
           </div>
         </div>
       </CardContent>
