@@ -27,6 +27,19 @@ export const useHealthTrendAnalysis = () => {
   const analyzeTrend = async (sessionId?: string, daysBack: number = 7) => {
     setLoading(true);
     try {
+      // Check and refresh session if needed
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        toast({
+          title: 'กรุณาเข้าสู่ระบบ',
+          description: 'คุณต้องเข้าสู่ระบบก่อนใช้ฟีเจอร์นี้',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('health-trend-analysis', {
         body: { sessionId, daysBack }
       });
