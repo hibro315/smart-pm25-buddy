@@ -14,17 +14,15 @@ interface Symptom {
   icon: string;
 }
 
+// Only use symptoms that exist in the database schema
 const SYMPTOMS: Symptom[] = [
   { id: 'cough', label: 'ไอ', icon: '🤧' },
-  { id: 'sore_throat', label: 'เจ็บคอ', icon: '😷' },
-  { id: 'eye_irritation', label: 'แสบตา', icon: '👁️' },
-  { id: 'runny_nose', label: 'น้ำมูก', icon: '🤮' },
-  { id: 'shortness_of_breath', label: 'หายใจไม่สะดวก', icon: '😮‍💨' },
+  { id: 'sneeze', label: 'จาม', icon: '🤧' },
   { id: 'wheezing', label: 'หายใจมีเสียงหวีด', icon: '🌬️' },
   { id: 'chest_tightness', label: 'แน่นหน้าอก', icon: '💔' },
-  { id: 'headache', label: 'ปวดศีรษะ', icon: '🤕' },
+  { id: 'eye_irritation', label: 'แสบตา', icon: '👁️' },
   { id: 'fatigue', label: 'เหนื่อยง่าย', icon: '😴' },
-  { id: 'sneeze', label: 'จาม', icon: '🤧' },
+  { id: 'shortness_of_breath', label: 'หายใจไม่สะดวก', icon: '😮‍💨' },
 ];
 
 export const EnhancedSymptomLog = () => {
