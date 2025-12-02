@@ -76,8 +76,8 @@ export const useDailySymptoms = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
-          title: 'Error',
-          description: 'You must be logged in',
+          title: 'ผิดพลาด',
+          description: 'กรุณาเข้าสู่ระบบก่อน',
           variant: 'destructive',
         });
         return;
@@ -95,25 +95,31 @@ export const useDailySymptoms = () => {
           log_date: today,
           ...symptoms,
           symptom_score: symptomScore,
+        }, {
+          onConflict: 'user_id,log_date'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
 
       setTodaySymptoms(symptoms);
 
       toast({
-        title: 'Symptoms Logged',
-        description: `Your symptom score today: ${symptomScore}/100`,
+        title: 'บันทึกสำเร็จ',
+        description: `คะแนนอาการของคุณวันนี้: ${symptomScore}/100`,
       });
 
       return symptomScore;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving symptoms:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to save symptoms',
+        title: 'ไม่สามารถบันทึกได้',
+        description: error.message || 'เกิดข้อผิดพลาดในการบันทึกอาการ',
         variant: 'destructive',
       });
+      return undefined;
     }
   };
 
