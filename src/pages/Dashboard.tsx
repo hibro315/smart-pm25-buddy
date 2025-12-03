@@ -20,10 +20,11 @@ import { useState, useEffect } from "react";
 
 const Dashboard = () => {
   const { profile } = useHealthProfile();
-  const { calculateEnhancedPHRI } = useEnhancedPHRI();
+  const { calculateEnhancedPHRI, saveEnhancedPHRILog } = useEnhancedPHRI();
   const { data } = useAirQualityWithFallback();
-  const { todaySymptoms } = useDailySymptoms();
+  const { todaySymptoms, getSymptomScore } = useDailySymptoms();
   const [phriResult, setPhriResult] = useState<any>(undefined);
+  const [hasSavedToday, setHasSavedToday] = useState(false);
 
   useEffect(() => {
     if (data && profile) {
@@ -36,7 +37,9 @@ const Dashboard = () => {
       if (todaySymptoms?.eye_irritation) symptoms.push('eye irritation');
       if (todaySymptoms?.fatigue) symptoms.push('fatigue');
 
-      const result = calculateEnhancedPHRI({
+      const symptomScore = getSymptomScore();
+
+      const input = {
         pm25: data.pm25,
         aqi: data.aqi,
         pm10: data.pm10,
@@ -55,15 +58,24 @@ const Dashboard = () => {
         dustSensitivity: (profile.dustSensitivity as 'low' | 'medium' | 'high') || 'medium',
         physicalActivity: (profile.physicalActivity as 'sedentary' | 'moderate' | 'active') || 'moderate',
         hasAirPurifier: profile.hasAirPurifier || false,
-        outdoorTime: 60,
+        outdoorTime: symptomScore > 0 ? 60 : 30,
         wearingMask: false,
         hasSymptoms: symptoms.length > 0,
         symptoms: symptoms,
         location: data.location,
-      });
+      };
+
+      const result = calculateEnhancedPHRI(input);
       setPhriResult(result);
+
+      // Auto-save PHRI and AQI data to health_logs once per day
+      if (!hasSavedToday && data.pm25 > 0) {
+        saveEnhancedPHRILog(input, result).then(() => {
+          setHasSavedToday(true);
+        });
+      }
     }
-  }, [data, profile, todaySymptoms, calculateEnhancedPHRI]);
+  }, [data, profile, todaySymptoms, calculateEnhancedPHRI, saveEnhancedPHRILog, hasSavedToday, getSymptomScore]);
 
   return (
     <div className="min-h-screen bg-background pb-24">

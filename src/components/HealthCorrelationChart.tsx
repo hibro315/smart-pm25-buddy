@@ -30,6 +30,7 @@ export const HealthCorrelationChart = () => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);
       const startDateStr = startDate.toISOString().split('T')[0];
+      const todayStr = new Date().toISOString().split('T')[0];
 
       // Fetch symptom data
       const { data: symptoms, error: symptomsError } = await supabase
@@ -51,36 +52,63 @@ export const HealthCorrelationChart = () => {
 
       if (logsError) throw logsError;
 
-      // Merge data by date
+      // Merge data by date - prioritize health_logs for PM2.5/AQI
       const correlationMap = new Map<string, CorrelationData>();
 
-      symptoms?.forEach(symptom => {
-        correlationMap.set(symptom.log_date, {
-          date: symptom.log_date,
-          symptomScore: symptom.symptom_score || 0,
-          pm25: 0,
-          aqi: 0,
+      // First add all health logs with PM2.5/AQI data
+      healthLogs?.forEach(log => {
+        correlationMap.set(log.log_date, {
+          date: log.log_date,
+          symptomScore: 0,
+          pm25: Number(log.pm25) || 0,
+          aqi: log.aqi || 0,
         });
       });
 
-      healthLogs?.forEach(log => {
-        const existing = correlationMap.get(log.log_date);
+      // Then merge symptom scores
+      symptoms?.forEach(symptom => {
+        const existing = correlationMap.get(symptom.log_date);
         if (existing) {
-          existing.pm25 = log.pm25;
-          existing.aqi = log.aqi;
+          existing.symptomScore = symptom.symptom_score || 0;
         } else {
-          correlationMap.set(log.log_date, {
-            date: log.log_date,
-            symptomScore: 0,
-            pm25: log.pm25,
-            aqi: log.aqi,
+          correlationMap.set(symptom.log_date, {
+            date: symptom.log_date,
+            symptomScore: symptom.symptom_score || 0,
+            pm25: 0,
+            aqi: 0,
           });
         }
       });
 
-      const correlationData = Array.from(correlationMap.values()).sort((a, b) => 
-        a.date.localeCompare(b.date)
-      );
+      // If today has no PM2.5 data, try to get from localStorage cache
+      const todayData = correlationMap.get(todayStr);
+      if (!todayData || todayData.pm25 === 0) {
+        try {
+          const cachedAQI = localStorage.getItem('cachedAirQuality');
+          if (cachedAQI) {
+            const parsed = JSON.parse(cachedAQI);
+            if (parsed.pm25) {
+              if (todayData) {
+                todayData.pm25 = parsed.pm25;
+                todayData.aqi = parsed.aqi || 0;
+              } else {
+                correlationMap.set(todayStr, {
+                  date: todayStr,
+                  symptomScore: 0,
+                  pm25: parsed.pm25,
+                  aqi: parsed.aqi || 0,
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.log('No cached AQI data');
+        }
+      }
+
+      const correlationData = Array.from(correlationMap.values())
+        .filter(d => d.pm25 > 0 || d.symptomScore > 0)
+        .sort((a, b) => a.date.localeCompare(b.date));
 
       setData(correlationData);
     } catch (error) {
