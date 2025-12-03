@@ -337,7 +337,7 @@ export const useEnhancedPHRI = () => {
     }
   }, []);
 
-  // Save PHRI log with exposure history
+  // Save PHRI log with exposure history (checks if already saved today)
   const saveEnhancedPHRILog = useCallback(async (
     input: EnhancedPHRIInput,
     result: EnhancedPHRIResult
@@ -346,40 +346,70 @@ export const useEnhancedPHRI = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast({
-          title: 'ไม่สามารถบันทึกข้อมูลได้',
-          description: 'กรุณาเข้าสู่ระบบก่อน',
-          variant: 'destructive',
-        });
         return false;
       }
 
-      // Save to health_logs table
-      const { error } = await supabase.from('health_logs').insert({
-        user_id: user.id,
-        aqi: input.aqi,
-        pm25: input.pm25,
-        pm10: input.pm10 || null,
-        co: input.co || null,
-        no2: input.no2 || null,
-        o3: input.o3 || null,
-        so2: input.so2 || null,
-        outdoor_time: input.outdoorTime,
-        age: input.age,
-        gender: input.gender,
-        has_symptoms: input.hasSymptoms,
-        symptoms: input.symptoms,
-        phri: result.phri,
-        location: result.location,
-        wearing_mask: input.wearingMask,
-      });
+      const today = new Date().toISOString().split('T')[0];
 
-      if (error) throw error;
+      // Check if already saved today
+      const { data: existingLog } = await supabase
+        .from('health_logs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('log_date', today)
+        .maybeSingle();
 
-      toast({
-        title: 'บันทึกข้อมูลสำเร็จ',
-        description: `PHRI: ${result.phri}/10 (${result.alertLevel})`,
-      });
+      if (existingLog) {
+        // Update existing record
+        const { error } = await supabase
+          .from('health_logs')
+          .update({
+            aqi: input.aqi,
+            pm25: input.pm25,
+            pm10: input.pm10 || null,
+            co: input.co || null,
+            no2: input.no2 || null,
+            o3: input.o3 || null,
+            so2: input.so2 || null,
+            outdoor_time: input.outdoorTime,
+            has_symptoms: input.hasSymptoms,
+            symptoms: input.symptoms,
+            phri: result.phri,
+            location: result.location,
+            wearing_mask: input.wearingMask,
+          })
+          .eq('id', existingLog.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase.from('health_logs').insert({
+          user_id: user.id,
+          log_date: today,
+          aqi: input.aqi,
+          pm25: input.pm25,
+          pm10: input.pm10 || null,
+          co: input.co || null,
+          no2: input.no2 || null,
+          o3: input.o3 || null,
+          so2: input.so2 || null,
+          outdoor_time: input.outdoorTime,
+          age: input.age,
+          gender: input.gender,
+          has_symptoms: input.hasSymptoms,
+          symptoms: input.symptoms,
+          phri: result.phri,
+          location: result.location,
+          wearing_mask: input.wearingMask,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: 'บันทึกข้อมูลสำเร็จ',
+          description: `PHRI: ${result.phri}/10 - PM2.5: ${input.pm25} µg/m³`,
+        });
+      }
 
       // Send notification if warning or higher
       if (result.phri >= 3) {
@@ -389,11 +419,6 @@ export const useEnhancedPHRI = () => {
       return true;
     } catch (error) {
       console.error('Error saving PHRI log:', error);
-      toast({
-        title: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถบันทึกข้อมูลได้',
-        variant: 'destructive',
-      });
       return false;
     } finally {
       setLoading(false);
