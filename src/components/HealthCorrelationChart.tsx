@@ -84,7 +84,7 @@ export const HealthCorrelationChart = () => {
       const todayData = correlationMap.get(todayStr);
       if (!todayData || todayData.pm25 === 0) {
         try {
-          const cachedAQI = localStorage.getItem('cachedAirQuality');
+          const cachedAQI = localStorage.getItem('airQualityCache');
           if (cachedAQI) {
             const parsed = JSON.parse(cachedAQI);
             if (parsed.pm25) {

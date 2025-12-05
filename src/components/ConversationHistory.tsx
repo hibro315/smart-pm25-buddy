@@ -31,7 +31,10 @@ export const ConversationHistory = () => {
   const loadConversations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("conversation_history")
