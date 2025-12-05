@@ -1,10 +1,44 @@
+import { useState, useEffect } from "react";
 import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
 import { ConversationHistory } from "@/components/ConversationHistory";
+import { ChatLoadingSkeleton } from "@/components/ChatLoadingSkeleton";
 import { UserMenu } from "@/components/UserMenu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessageSquare, History } from "lucide-react";
 
+interface CachedAirQuality {
+  pm25: number;
+  aqi: number;
+  temperature: number;
+  humidity: number;
+  location: string;
+  timestamp: string;
+}
+
 const Chat = () => {
+  const [airQuality, setAirQuality] = useState<CachedAirQuality | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Load cached air quality data from localStorage
+    const loadCachedData = () => {
+      try {
+        const cached = localStorage.getItem('airQualityCache');
+        if (cached) {
+          const data = JSON.parse(cached);
+          setAirQuality(data);
+        }
+      } catch (error) {
+        console.error('Error loading cached air quality:', error);
+      } finally {
+        // Short delay for smoother UX
+        setTimeout(() => setIsLoading(false), 300);
+      }
+    };
+
+    loadCachedData();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
@@ -32,7 +66,17 @@ const Chat = () => {
           </TabsList>
 
           <TabsContent value="chat" className="mt-0">
-            <HealthChatbotEnhanced />
+            {isLoading ? (
+              <ChatLoadingSkeleton />
+            ) : (
+              <HealthChatbotEnhanced 
+                pm25={airQuality?.pm25}
+                aqi={airQuality?.aqi}
+                temperature={airQuality?.temperature}
+                humidity={airQuality?.humidity}
+                location={airQuality?.location}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="mt-0">

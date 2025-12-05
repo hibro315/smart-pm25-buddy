@@ -21,6 +21,21 @@ const Home = () => {
     else setGreeting("สวัสดีตอนเย็น");
   }, []);
 
+  // Cache air quality data for other pages to use
+  useEffect(() => {
+    if (data && data.pm25) {
+      const cacheData = {
+        pm25: data.pm25,
+        aqi: data.aqi,
+        temperature: data.temperature,
+        humidity: data.humidity,
+        location: data.location,
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem('airQualityCache', JSON.stringify(cacheData));
+    }
+  }, [data]);
+
   const pm25 = data?.pm25 || 0;
   const aqi = data?.aqi || 0;
 
