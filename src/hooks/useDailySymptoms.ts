@@ -32,7 +32,10 @@ export const useDailySymptoms = () => {
   const loadTodaySymptoms = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const today = new Date().toISOString().split('T')[0];
 
