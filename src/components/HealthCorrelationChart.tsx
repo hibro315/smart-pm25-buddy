@@ -25,7 +25,10 @@ export const HealthCorrelationChart = () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);

@@ -81,11 +81,23 @@ export const PHRITrendChart = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>กราฟแนวโน้ม PHRI</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>กราฟแนวโน้ม PHRI</CardTitle>
+              <CardDescription>กำลังโหลดข้อมูล...</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground">กำลังโหลดข้อมูล...</p>
+          <div className="space-y-4">
+            <div className="h-[300px] bg-muted/30 rounded-lg animate-pulse flex items-center justify-center">
+              <Activity className="h-8 w-8 text-muted-foreground animate-pulse" />
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-6 bg-muted/30 rounded animate-pulse" />
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>

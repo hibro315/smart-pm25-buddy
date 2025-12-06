@@ -11,34 +11,42 @@ import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
 import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
 import { UserMenu } from "@/components/UserMenu";
+import { DashboardLoadingSkeleton } from "@/components/DashboardLoadingSkeleton";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useDailySymptoms } from "@/hooks/useDailySymptoms";
 import { Activity, TrendingUp, History, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const Dashboard = () => {
-  const { profile } = useHealthProfile();
+  const { profile, loading: profileLoading } = useHealthProfile();
   const { calculateEnhancedPHRI, saveEnhancedPHRILog } = useEnhancedPHRI();
-  const { data } = useAirQualityWithFallback();
-  const { todaySymptoms, getSymptomScore } = useDailySymptoms();
+  const { data, loading: airQualityLoading } = useAirQualityWithFallback();
+  const { todaySymptoms, getSymptomScore, loading: symptomsLoading } = useDailySymptoms();
   const [phriResult, setPhriResult] = useState<any>(undefined);
   const [hasSavedToday, setHasSavedToday] = useState(false);
 
+  // Memoize symptom score calculation
+  const memoizedSymptomScore = useMemo(() => {
+    return getSymptomScore();
+  }, [todaySymptoms, getSymptomScore]);
+
+  // Memoize symptoms array
+  const symptoms = useMemo(() => {
+    const result: string[] = [];
+    if (todaySymptoms?.cough) result.push('cough');
+    if (todaySymptoms?.sneeze) result.push('sneeze');
+    if (todaySymptoms?.wheezing) result.push('wheezing');
+    if (todaySymptoms?.chest_tightness) result.push('chest tightness');
+    if (todaySymptoms?.shortness_of_breath) result.push('shortness of breath');
+    if (todaySymptoms?.eye_irritation) result.push('eye irritation');
+    if (todaySymptoms?.fatigue) result.push('fatigue');
+    return result;
+  }, [todaySymptoms]);
+
   useEffect(() => {
     if (data && profile) {
-      const symptoms: string[] = [];
-      if (todaySymptoms?.cough) symptoms.push('cough');
-      if (todaySymptoms?.sneeze) symptoms.push('sneeze');
-      if (todaySymptoms?.wheezing) symptoms.push('wheezing');
-      if (todaySymptoms?.chest_tightness) symptoms.push('chest tightness');
-      if (todaySymptoms?.shortness_of_breath) symptoms.push('shortness of breath');
-      if (todaySymptoms?.eye_irritation) symptoms.push('eye irritation');
-      if (todaySymptoms?.fatigue) symptoms.push('fatigue');
-
-      const symptomScore = getSymptomScore();
-
       const input = {
         pm25: data.pm25,
         aqi: data.aqi,
@@ -58,7 +66,7 @@ const Dashboard = () => {
         dustSensitivity: (profile.dustSensitivity as 'low' | 'medium' | 'high') || 'medium',
         physicalActivity: (profile.physicalActivity as 'sedentary' | 'moderate' | 'active') || 'moderate',
         hasAirPurifier: profile.hasAirPurifier || false,
-        outdoorTime: symptomScore > 0 ? 60 : 30,
+        outdoorTime: memoizedSymptomScore > 0 ? 60 : 30,
         wearingMask: false,
         hasSymptoms: symptoms.length > 0,
         symptoms: symptoms,
@@ -75,7 +83,14 @@ const Dashboard = () => {
         });
       }
     }
-  }, [data, profile, todaySymptoms, calculateEnhancedPHRI, saveEnhancedPHRILog, hasSavedToday, getSymptomScore]);
+  }, [data, profile, symptoms, memoizedSymptomScore, calculateEnhancedPHRI, saveEnhancedPHRILog, hasSavedToday]);
+
+  // Show skeleton while initial data is loading
+  const isInitialLoading = profileLoading || (airQualityLoading && !data);
+
+  if (isInitialLoading) {
+    return <DashboardLoadingSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">

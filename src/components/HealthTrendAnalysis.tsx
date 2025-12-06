@@ -103,6 +103,25 @@ export const HealthTrendAnalysis = () => {
           </>
         )}
 
+        {loading && !analysis && (
+          <div className="space-y-4 animate-pulse">
+            <div className="grid grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="p-4 bg-muted/30 rounded-lg">
+                  <div className="h-5 w-5 bg-muted rounded mx-auto mb-2" />
+                  <div className="h-8 w-12 bg-muted rounded mx-auto mb-1" />
+                  <div className="h-3 w-16 bg-muted rounded mx-auto" />
+                </div>
+              ))}
+            </div>
+            <div className="p-4 bg-muted/30 rounded-lg space-y-2">
+              <div className="h-4 w-full bg-muted rounded" />
+              <div className="h-4 w-3/4 bg-muted rounded" />
+              <div className="h-4 w-5/6 bg-muted rounded" />
+            </div>
+          </div>
+        )}
+
         {!analysis && !loading && (
           <div className="text-center py-8 text-muted-foreground">
             <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
