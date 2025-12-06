@@ -11,6 +11,7 @@ import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
 import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
 import { UserMenu } from "@/components/UserMenu";
+import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { DashboardLoadingSkeleton } from "@/components/DashboardLoadingSkeleton";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
@@ -101,7 +102,10 @@ const Dashboard = () => {
             <h1 className="text-2xl font-display font-bold">Health Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">ภาพรวมสุขภาพและ PHRI ของคุณ</p>
           </div>
-          <UserMenu />
+          <div className="flex items-center gap-2">
+            <OnlineStatusBadge compact showConnectionType />
+            <UserMenu />
+          </div>
         </div>
       </div>
 
