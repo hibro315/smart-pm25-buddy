@@ -58,9 +58,35 @@ export const HealthLogsHistory = () => {
             <Calendar className="h-5 w-5" />
             ประวัติการบันทึก
           </CardTitle>
+          <CardDescription>กำลังโหลดข้อมูล...</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-center text-muted-foreground">กำลังโหลด...</p>
+        <CardContent className="space-y-4">
+          {/* Stats Skeleton */}
+          <div className="grid grid-cols-3 gap-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="p-3 bg-muted/50 rounded-lg text-center animate-pulse">
+                <div className="h-3 w-16 mx-auto bg-muted rounded mb-2" />
+                <div className="h-6 w-12 mx-auto bg-muted rounded" />
+              </div>
+            ))}
+          </div>
+          {/* Log Items Skeleton */}
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="p-4 border rounded-lg animate-pulse">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="h-4 w-24 bg-muted rounded" />
+                  <div className="h-6 w-20 bg-muted rounded-full" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-3 w-20 bg-muted rounded" />
+                  <div className="h-3 w-24 bg-muted rounded" />
+                  <div className="h-3 w-28 bg-muted rounded" />
+                  <div className="h-3 w-16 bg-muted rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     );

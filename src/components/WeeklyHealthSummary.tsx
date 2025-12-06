@@ -49,9 +49,28 @@ export const WeeklyHealthSummary = () => {
         )}
 
         {loading && (
-          <div className="text-center py-8">
-            <Loader2 className="h-12 w-12 mx-auto mb-3 animate-spin text-primary" />
-            <p className="text-muted-foreground">กำลังวิเคราะห์ข้อมูลสุขภาพของคุณ...</p>
+          <div className="space-y-4 animate-pulse">
+            {/* Stats Skeleton */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-muted/30 p-3 rounded-lg">
+                  <div className="h-3 w-16 bg-muted rounded mb-2" />
+                  <div className="h-8 w-12 bg-muted rounded" />
+                </div>
+              ))}
+            </div>
+            {/* Badge Skeleton */}
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-32 bg-muted rounded-full" />
+              <div className="h-6 w-24 bg-muted rounded-full" />
+            </div>
+            {/* Content Skeleton */}
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-muted rounded" />
+              <div className="h-4 w-3/4 bg-muted rounded" />
+              <div className="h-4 w-5/6 bg-muted rounded" />
+              <div className="h-4 w-2/3 bg-muted rounded" />
+            </div>
           </div>
         )}
 
