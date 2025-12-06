@@ -6,7 +6,9 @@ import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { AirQualityCard } from "@/components/AirQualityCard";
 import { AlertNotification } from "@/components/AlertNotification";
 import { UserMenu } from "@/components/UserMenu";
-import { Activity, MapPin, MessageSquare, Bell, TrendingUp, Wind, Droplets, Thermometer, ChevronRight, Shield } from "lucide-react";
+import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
+import { EnhancedNearbyHospitals } from "@/components/EnhancedNearbyHospitals";
+import { Activity, MapPin, MessageSquare, Bell, TrendingUp, Wind, Droplets, Thermometer, ChevronRight, Shield, Hospital } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Home = () => {
@@ -51,8 +53,9 @@ const Home = () => {
     <div className="min-h-screen bg-background pb-24">
       {/* Hero Section */}
       <div className="relative bg-gradient-primary text-white overflow-hidden">
-        {/* User Menu - Absolute positioned */}
-        <div className="absolute top-4 right-4 z-20">
+        {/* Status Badges */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <OnlineStatusBadge compact showConnectionType />
           <UserMenu />
         </div>
         {refreshing && (
@@ -204,6 +207,24 @@ const Home = () => {
             </div>
           </Card>
         </Link>
+
+        {/* Hospital Quick Link */}
+        <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group border-destructive/20 bg-destructive/5"
+          onClick={() => document.getElementById('hospitals-section')?.scrollIntoView({ behavior: 'smooth' })}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-destructive/10 p-3 rounded-xl">
+                <Hospital className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base">โรงพยาบาลใกล้เคียง</h3>
+                <p className="text-sm text-muted-foreground">ติดต่อโรงพยาบาลโดยตรง</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-destructive transition-colors" />
+          </div>
+        </Card>
       </div>
 
       {/* Today's Recommendations */}
@@ -232,6 +253,11 @@ const Home = () => {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Nearby Hospitals Section */}
+      <div id="hospitals-section" className="container mx-auto px-6 mt-8">
+        <EnhancedNearbyHospitals />
       </div>
     </div>
   );

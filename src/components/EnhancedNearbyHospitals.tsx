@@ -1,0 +1,482 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getPosition } from "@/utils/geolocation";
+import { toast } from "sonner";
+import { 
+  Hospital, 
+  Phone, 
+  MapPin, 
+  Navigation, 
+  AlertCircle, 
+  Ambulance,
+  Clock,
+  RefreshCw,
+  Locate,
+  MessageCircle,
+  ExternalLink,
+  Star
+} from "lucide-react";
+
+interface HospitalData {
+  id: string;
+  name: string;
+  distance: number;
+  distanceText: string;
+  phone: string;
+  emergencyPhone?: string;
+  address: string;
+  specialties: string[];
+  rating?: number;
+  isOpen24h: boolean;
+  lat: number;
+  lng: number;
+  lineId?: string;
+}
+
+// Static hospital data for Thailand (Bangkok area)
+const HOSPITALS_DATABASE: HospitalData[] = [
+  {
+    id: "1",
+    name: "โรงพยาบาลจุฬาลงกรณ์",
+    distance: 0,
+    distanceText: "",
+    phone: "02-256-4000",
+    emergencyPhone: "02-256-4567",
+    address: "1873 ถ.พระราม 4 แขวงปทุมวัน เขตปทุมวัน กรุงเทพฯ 10330",
+    specialties: ["โรคทางเดินหายใจ", "โรคหัวใจ", "ฉุกเฉิน 24 ชม."],
+    rating: 4.5,
+    isOpen24h: true,
+    lat: 13.7323,
+    lng: 100.5306,
+  },
+  {
+    id: "2",
+    name: "โรงพยาบาลรามาธิบดี",
+    distance: 0,
+    distanceText: "",
+    phone: "02-201-1000",
+    emergencyPhone: "02-201-1188",
+    address: "270 ถ.พระราม 6 แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400",
+    specialties: ["โรคปอด", "โรคภูมิแพ้", "ฉุกเฉิน 24 ชม."],
+    rating: 4.6,
+    isOpen24h: true,
+    lat: 13.7649,
+    lng: 100.5253,
+  },
+  {
+    id: "3",
+    name: "โรงพยาบาลศิริราช",
+    distance: 0,
+    distanceText: "",
+    phone: "02-419-7000",
+    emergencyPhone: "02-419-7999",
+    address: "2 ถ.วังหลัง แขวงศิริราช เขตบางกอกน้อย กรุงเทพฯ 10700",
+    specialties: ["โรคทางเดินหายใจ", "โรคหอบหืด", "ฉุกเฉิน 24 ชม."],
+    rating: 4.7,
+    isOpen24h: true,
+    lat: 13.7590,
+    lng: 100.4857,
+  },
+  {
+    id: "4",
+    name: "โรงพยาบาลพระมงกุฎเกล้า",
+    distance: 0,
+    distanceText: "",
+    phone: "02-354-7600",
+    emergencyPhone: "02-354-7711",
+    address: "315 ถ.ราชวิถี แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400",
+    specialties: ["โรคปอด", "โรคภูมิแพ้", "อายุรกรรม"],
+    rating: 4.3,
+    isOpen24h: true,
+    lat: 13.7720,
+    lng: 100.5326,
+  },
+  {
+    id: "5",
+    name: "โรงพยาบาลกรุงเทพ",
+    distance: 0,
+    distanceText: "",
+    phone: "02-310-3000",
+    emergencyPhone: "02-310-3111",
+    address: "2 ซ.ศูนย์วิจัย 7 ถ.เพชรบุรีตัดใหม่ แขวงบางกะปิ เขตห้วยขวาง กรุงเทพฯ",
+    specialties: ["โรคทางเดินหายใจ", "โรคหัวใจ", "ฉุกเฉิน 24 ชม."],
+    rating: 4.8,
+    isOpen24h: true,
+    lat: 13.7487,
+    lng: 100.5684,
+    lineId: "@bangkokhospital",
+  },
+  {
+    id: "6",
+    name: "โรงพยาบาลบำรุงราษฎร์",
+    distance: 0,
+    distanceText: "",
+    phone: "02-066-8888",
+    emergencyPhone: "02-011-3911",
+    address: "33 ซอยสุขุมวิท 3 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพฯ 10110",
+    specialties: ["ศูนย์โรคปอด", "โรคภูมิแพ้", "ฉุกเฉิน 24 ชม."],
+    rating: 4.9,
+    isOpen24h: true,
+    lat: 13.7430,
+    lng: 100.5520,
+    lineId: "@bumrungrad",
+  },
+];
+
+// Calculate distance between two points using Haversine formula
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const formatDistance = (km: number): string => {
+  if (km < 1) {
+    return `${Math.round(km * 1000)} ม.`;
+  }
+  return `${km.toFixed(1)} กม.`;
+};
+
+export const EnhancedNearbyHospitals = () => {
+  const { isOnline } = useOnlineStatus();
+  const [hospitals, setHospitals] = useState<HospitalData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const loadNearbyHospitals = useCallback(async () => {
+    setLoading(true);
+    setLocationError(null);
+
+    try {
+      const position = await getPosition({ timeout: 15000, enableHighAccuracy: true });
+      const { latitude, longitude } = position;
+      setUserLocation({ lat: latitude, lng: longitude });
+
+      // Calculate distances and sort by nearest
+      const hospitalsWithDistance = HOSPITALS_DATABASE.map(hospital => ({
+        ...hospital,
+        distance: calculateDistance(latitude, longitude, hospital.lat, hospital.lng),
+        distanceText: formatDistance(calculateDistance(latitude, longitude, hospital.lat, hospital.lng)),
+      })).sort((a, b) => a.distance - b.distance);
+
+      setHospitals(hospitalsWithDistance);
+      setLastUpdated(new Date());
+      
+      // Cache for offline use
+      localStorage.setItem('cachedHospitals', JSON.stringify({
+        hospitals: hospitalsWithDistance,
+        userLocation: { lat: latitude, lng: longitude },
+        timestamp: Date.now(),
+      }));
+
+    } catch (error: any) {
+      console.error('Location error:', error);
+      setLocationError('ไม่สามารถระบุตำแหน่งได้ กรุณาเปิดใช้งาน GPS');
+      
+      // Try to load cached data
+      const cached = localStorage.getItem('cachedHospitals');
+      if (cached) {
+        const data = JSON.parse(cached);
+        setHospitals(data.hospitals);
+        setUserLocation(data.userLocation);
+        toast.info('ใช้ข้อมูลที่บันทึกไว้', {
+          description: 'กำลังแสดงข้อมูลจากครั้งก่อน',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNearbyHospitals();
+  }, [loadNearbyHospitals]);
+
+  const handleCall = (phone: string, hospitalName: string) => {
+    toast.success(`กำลังโทรหา ${hospitalName}`, {
+      description: phone,
+    });
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleEmergencyCall = (phone: string) => {
+    toast.success('กำลังโทรหาห้องฉุกเฉิน', {
+      description: phone,
+    });
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleNavigate = (hospital: HospitalData) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}&travelmode=driving`;
+    window.open(url, '_blank');
+  };
+
+  const handleLineChat = (lineId: string) => {
+    window.open(`https://line.me/R/ti/p/${lineId}`, '_blank');
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[...Array(5)].map((_, i) => (
+          <Star 
+            key={i} 
+            className={`w-3 h-3 ${i < Math.floor(rating) ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`}
+          />
+        ))}
+        <span className="text-xs text-muted-foreground ml-1">{rating}</span>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5 rounded" />
+              <Skeleton className="h-6 w-40" />
+            </div>
+            <Skeleton className="h-8 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-64 mt-2" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-lg" />
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Hospital className="w-5 h-5 text-primary" />
+            <CardTitle>โรงพยาบาลใกล้เคียง</CardTitle>
+          </div>
+          <OnlineStatusBadge compact showConnectionType />
+        </div>
+        <CardDescription className="flex items-center justify-between">
+          <span>โรงพยาบาลที่รองรับโรคทางเดินหายใจและ PM2.5</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={loadNearbyHospitals}
+            disabled={loading}
+            className="h-8 px-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </CardDescription>
+        
+        {userLocation && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+            <Locate className="w-3 h-3" />
+            <span>ตำแหน่งของคุณ: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}</span>
+            {lastUpdated && (
+              <span className="ml-2">
+                (อัปเดต {lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})
+              </span>
+            )}
+          </div>
+        )}
+
+        {locationError && (
+          <div className="flex items-center gap-2 text-destructive text-sm mt-2 p-2 bg-destructive/10 rounded-lg">
+            <AlertCircle className="w-4 h-4" />
+            <span>{locationError}</span>
+            <Button variant="link" size="sm" onClick={loadNearbyHospitals} className="p-0 h-auto">
+              ลองอีกครั้ง
+            </Button>
+          </div>
+        )}
+
+        {!isOnline && (
+          <div className="flex items-center gap-2 text-orange-600 text-sm mt-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg">
+            <AlertCircle className="w-4 h-4" />
+            <span>คุณกำลังออฟไลน์ - แสดงข้อมูลที่บันทึกไว้</span>
+          </div>
+        )}
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Emergency Call Banner */}
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-destructive/20 rounded-full">
+                <Ambulance className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <p className="font-semibold text-destructive">ฉุกเฉิน? โทร 1669</p>
+                <p className="text-xs text-muted-foreground">สายด่วนการแพทย์ฉุกเฉินของประเทศไทย</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => handleCall('1669', 'สายด่วน 1669')}
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+            >
+              <Phone className="w-4 h-4" />
+              โทรเลย
+            </Button>
+          </div>
+        </div>
+
+        {/* Hospital List */}
+        <ScrollArea className="h-[500px] pr-2">
+          <div className="space-y-3">
+            {hospitals.map((hospital, index) => (
+              <Card 
+                key={hospital.id} 
+                className="bg-card hover:shadow-md transition-all border-border overflow-hidden"
+              >
+                <div className="p-4 space-y-3">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        {index < 3 && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            #{index + 1}
+                          </Badge>
+                        )}
+                        <h3 className="font-semibold text-foreground leading-tight">
+                          {hospital.name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="w-3 h-3" />
+                          <span className="font-medium text-primary">{hospital.distanceText}</span>
+                        </div>
+                        {hospital.rating && renderStars(hospital.rating)}
+                      </div>
+                    </div>
+                    {hospital.isOpen24h && (
+                      <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10">
+                        <Clock className="w-3 h-3" />
+                        24 ชม.
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Address */}
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {hospital.address}
+                  </p>
+
+                  {/* Specialties */}
+                  <div className="flex flex-wrap gap-1">
+                    {hospital.specialties.map((specialty, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] px-2 py-0.5">
+                        {specialty}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <Button
+                      onClick={() => handleCall(hospital.phone, hospital.name)}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      โทรติดต่อ
+                    </Button>
+                    <Button
+                      onClick={() => handleNavigate(hospital)}
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      นำทาง
+                    </Button>
+                  </div>
+
+                  {/* Secondary Actions */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    {hospital.emergencyPhone && (
+                      <Button
+                        onClick={() => handleEmergencyCall(hospital.emergencyPhone!)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1 flex-1"
+                      >
+                        <Ambulance className="w-4 h-4" />
+                        <span className="text-xs">ฉุกเฉิน</span>
+                      </Button>
+                    )}
+                    {hospital.lineId && (
+                      <Button
+                        onClick={() => handleLineChat(hospital.lineId!)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#00B900] hover:text-[#00B900] hover:bg-[#00B900]/10 gap-1 flex-1"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="text-xs">LINE</span>
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(hospital.name)}`, '_blank')}
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 flex-1"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span className="text-xs">ข้อมูลเพิ่มเติม</span>
+                    </Button>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Phone className="w-3 h-3" />
+                    <span>{hospital.phone}</span>
+                    {hospital.emergencyPhone && (
+                      <>
+                        <span className="text-border">|</span>
+                        <span className="text-destructive">ฉุกเฉิน: {hospital.emergencyPhone}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
+
+        {/* Offline Notice */}
+        {!isOnline && (
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              💡 การโทรยังใช้งานได้แม้ไม่มีอินเทอร์เน็ต
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
