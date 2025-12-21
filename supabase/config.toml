@@ -24,3 +24,6 @@ verify_jwt = true  # Prevent AI API quota abuse
 
 [functions.get-mapbox-token]
 verify_jwt = true  # Protect API key from unauthorized access
+
+[functions.search-nearby-hospitals]
+verify_jwt = false  # Allow hospital search without authentication
