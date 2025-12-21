@@ -425,13 +425,42 @@ export const useEnhancedPHRI = () => {
     }
   }, []);
 
-  // Send push notification
+  // Send push notification with browser support check
   const sendPHRINotification = async (result: EnhancedPHRIResult) => {
     try {
+      // Check if we're in a browser environment that supports notifications
+      const isNativeApp = typeof (window as any).Capacitor !== 'undefined';
+      
+      if (!isNativeApp) {
+        // Use Web Notifications API for browsers
+        if (!('Notification' in window)) {
+          console.log('Web notifications not supported');
+          return;
+        }
+        
+        const webPermission = await Notification.requestPermission();
+        if (webPermission !== 'granted') return;
+
+        const titles: Record<string, string> = {
+          emergency: '🚨 ฉุกเฉิน! ความเสี่ยงสูงมาก',
+          urgent: '⚠️ เร่งด่วน! ความเสี่ยงสูง',
+          warning: '⚠️ แจ้งเตือน: ความเสี่ยงปานกลาง',
+          info: 'ℹ️ ข้อมูล: สถานการณ์ปลอดภัย',
+        };
+
+        new Notification(titles[result.alertLevel] || 'แจ้งเตือน PHRI', {
+          body: `PHRI: ${result.phri}/10 - ${result.recommendation}`,
+          icon: '/icon-192.png',
+          tag: 'phri-notification',
+        });
+        return;
+      }
+
+      // Use Capacitor LocalNotifications for native apps
       const permission = await LocalNotifications.requestPermissions();
       if (permission.display !== 'granted') return;
 
-      const titles = {
+      const titles: Record<string, string> = {
         emergency: '🚨 ฉุกเฉิน! ความเสี่ยงสูงมาก',
         urgent: '⚠️ เร่งด่วน! ความเสี่ยงสูง',
         warning: '⚠️ แจ้งเตือน: ความเสี่ยงปานกลาง',
@@ -441,7 +470,7 @@ export const useEnhancedPHRI = () => {
       await LocalNotifications.schedule({
         notifications: [
           {
-            title: titles[result.alertLevel],
+            title: titles[result.alertLevel] || 'แจ้งเตือน PHRI',
             body: `PHRI: ${result.phri}/10\n${result.recommendation}\n${result.personalizedAdvice.join('\n')}`,
             id: Date.now(),
             schedule: { at: new Date(Date.now() + 100) },
@@ -457,7 +486,10 @@ export const useEnhancedPHRI = () => {
         ],
       });
     } catch (error) {
-      console.error('Notification error:', error);
+      // Silently fail for notification errors - don't spam console
+      if ((error as any)?.code !== 'UNAVAILABLE') {
+        console.log('Notification not available:', (error as any)?.message || error);
+      }
     }
   };
 
