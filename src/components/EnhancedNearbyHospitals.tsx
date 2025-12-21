@@ -9,6 +9,7 @@ import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { HospitalMapView } from "@/components/HospitalMapView";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getPosition } from "@/utils/geolocation";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
   Hospital, 
@@ -24,7 +25,9 @@ import {
   ExternalLink,
   Star,
   Map,
-  List
+  List,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
 interface HospitalData {
@@ -41,12 +44,13 @@ interface HospitalData {
   lat: number;
   lng: number;
   lineId?: string;
+  isOpenNow?: boolean;
 }
 
-// Static hospital data for Thailand (Bangkok area)
-const HOSPITALS_DATABASE: HospitalData[] = [
+// Fallback static hospital data for offline mode
+const FALLBACK_HOSPITALS: HospitalData[] = [
   {
-    id: "1",
+    id: "fallback-1",
     name: "โรงพยาบาลจุฬาลงกรณ์",
     distance: 0,
     distanceText: "",
@@ -60,21 +64,7 @@ const HOSPITALS_DATABASE: HospitalData[] = [
     lng: 100.5306,
   },
   {
-    id: "2",
-    name: "โรงพยาบาลรามาธิบดี",
-    distance: 0,
-    distanceText: "",
-    phone: "02-201-1000",
-    emergencyPhone: "02-201-1188",
-    address: "270 ถ.พระราม 6 แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400",
-    specialties: ["โรคปอด", "โรคภูมิแพ้", "ฉุกเฉิน 24 ชม."],
-    rating: 4.6,
-    isOpen24h: true,
-    lat: 13.7649,
-    lng: 100.5253,
-  },
-  {
-    id: "3",
+    id: "fallback-2",
     name: "โรงพยาบาลศิริราช",
     distance: 0,
     distanceText: "",
@@ -88,48 +78,18 @@ const HOSPITALS_DATABASE: HospitalData[] = [
     lng: 100.4857,
   },
   {
-    id: "4",
-    name: "โรงพยาบาลพระมงกุฎเกล้า",
+    id: "fallback-3",
+    name: "โรงพยาบาลรามาธิบดี",
     distance: 0,
     distanceText: "",
-    phone: "02-354-7600",
-    emergencyPhone: "02-354-7711",
-    address: "315 ถ.ราชวิถี แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400",
-    specialties: ["โรคปอด", "โรคภูมิแพ้", "อายุรกรรม"],
-    rating: 4.3,
+    phone: "02-201-1000",
+    emergencyPhone: "02-201-1188",
+    address: "270 ถ.พระราม 6 แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400",
+    specialties: ["โรคปอด", "โรคภูมิแพ้", "ฉุกเฉิน 24 ชม."],
+    rating: 4.6,
     isOpen24h: true,
-    lat: 13.7720,
-    lng: 100.5326,
-  },
-  {
-    id: "5",
-    name: "โรงพยาบาลกรุงเทพ",
-    distance: 0,
-    distanceText: "",
-    phone: "02-310-3000",
-    emergencyPhone: "02-310-3111",
-    address: "2 ซ.ศูนย์วิจัย 7 ถ.เพชรบุรีตัดใหม่ แขวงบางกะปิ เขตห้วยขวาง กรุงเทพฯ",
-    specialties: ["โรคทางเดินหายใจ", "โรคหัวใจ", "ฉุกเฉิน 24 ชม."],
-    rating: 4.8,
-    isOpen24h: true,
-    lat: 13.7487,
-    lng: 100.5684,
-    lineId: "@bangkokhospital",
-  },
-  {
-    id: "6",
-    name: "โรงพยาบาลบำรุงราษฎร์",
-    distance: 0,
-    distanceText: "",
-    phone: "02-066-8888",
-    emergencyPhone: "02-011-3911",
-    address: "33 ซอยสุขุมวิท 3 แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพฯ 10110",
-    specialties: ["ศูนย์โรคปอด", "โรคภูมิแพ้", "ฉุกเฉิน 24 ชม."],
-    rating: 4.9,
-    isOpen24h: true,
-    lat: 13.7430,
-    lng: 100.5520,
-    lineId: "@bumrungrad",
+    lat: 13.7649,
+    lng: 100.5253,
   },
 ];
 
@@ -161,6 +121,7 @@ export const EnhancedNearbyHospitals = () => {
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [dataSource, setDataSource] = useState<'api' | 'cache' | 'fallback'>('api');
 
   const loadNearbyHospitals = useCallback(async () => {
     setLoading(true);
@@ -171,22 +132,65 @@ export const EnhancedNearbyHospitals = () => {
       const { latitude, longitude } = position;
       setUserLocation({ lat: latitude, lng: longitude });
 
-      // Calculate distances and sort by nearest
-      const hospitalsWithDistance = HOSPITALS_DATABASE.map(hospital => ({
+      // Try to fetch from Google Places API if online
+      if (isOnline) {
+        try {
+          console.log('Fetching hospitals from Google Places API...');
+          const { data, error } = await supabase.functions.invoke('search-nearby-hospitals', {
+            body: { latitude, longitude, radius: 10000 }
+          });
+
+          if (!error && data?.hospitals?.length > 0) {
+            console.log(`Found ${data.hospitals.length} hospitals from API`);
+            setHospitals(data.hospitals);
+            setDataSource('api');
+            setLastUpdated(new Date());
+            
+            // Cache for offline use
+            localStorage.setItem('cachedHospitals', JSON.stringify({
+              hospitals: data.hospitals,
+              userLocation: { lat: latitude, lng: longitude },
+              timestamp: Date.now(),
+            }));
+            return;
+          } else {
+            console.log('API returned no results or error:', error);
+          }
+        } catch (apiError) {
+          console.error('API error, falling back to cached data:', apiError);
+        }
+      }
+
+      // Try cached data
+      const cached = localStorage.getItem('cachedHospitals');
+      if (cached) {
+        const data = JSON.parse(cached);
+        // Recalculate distances based on current position
+        const hospitalsWithDistance = data.hospitals.map((hospital: HospitalData) => ({
+          ...hospital,
+          distance: calculateDistance(latitude, longitude, hospital.lat, hospital.lng),
+          distanceText: formatDistance(calculateDistance(latitude, longitude, hospital.lat, hospital.lng)),
+        })).sort((a: HospitalData, b: HospitalData) => a.distance - b.distance);
+        
+        setHospitals(hospitalsWithDistance);
+        setDataSource('cache');
+        setLastUpdated(new Date(data.timestamp));
+        toast.info('ใช้ข้อมูลที่บันทึกไว้', {
+          description: isOnline ? 'ไม่สามารถดึงข้อมูลใหม่ได้' : 'คุณกำลังออฟไลน์',
+        });
+        return;
+      }
+
+      // Use fallback data
+      const fallbackWithDistance = FALLBACK_HOSPITALS.map(hospital => ({
         ...hospital,
         distance: calculateDistance(latitude, longitude, hospital.lat, hospital.lng),
         distanceText: formatDistance(calculateDistance(latitude, longitude, hospital.lat, hospital.lng)),
       })).sort((a, b) => a.distance - b.distance);
 
-      setHospitals(hospitalsWithDistance);
+      setHospitals(fallbackWithDistance);
+      setDataSource('fallback');
       setLastUpdated(new Date());
-      
-      // Cache for offline use
-      localStorage.setItem('cachedHospitals', JSON.stringify({
-        hospitals: hospitalsWithDistance,
-        userLocation: { lat: latitude, lng: longitude },
-        timestamp: Date.now(),
-      }));
 
     } catch (error: any) {
       console.error('Location error:', error);
@@ -198,14 +202,19 @@ export const EnhancedNearbyHospitals = () => {
         const data = JSON.parse(cached);
         setHospitals(data.hospitals);
         setUserLocation(data.userLocation);
+        setDataSource('cache');
         toast.info('ใช้ข้อมูลที่บันทึกไว้', {
           description: 'กำลังแสดงข้อมูลจากครั้งก่อน',
         });
+      } else {
+        // Use fallback without distance calculation
+        setHospitals(FALLBACK_HOSPITALS);
+        setDataSource('fallback');
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     loadNearbyHospitals();
@@ -277,6 +286,23 @@ export const EnhancedNearbyHospitals = () => {
           <div className="flex items-center gap-2">
             <Hospital className="w-5 h-5 text-primary" />
             <CardTitle>โรงพยาบาลใกล้เคียง</CardTitle>
+            {dataSource === 'api' && (
+              <Badge variant="outline" className="text-[10px] gap-1 text-success border-success/30 bg-success/10">
+                <Wifi className="w-3 h-3" />
+                Real-time
+              </Badge>
+            )}
+            {dataSource === 'cache' && (
+              <Badge variant="outline" className="text-[10px] gap-1 text-orange-600 border-orange-300/30 bg-orange-50 dark:bg-orange-950/20">
+                <WifiOff className="w-3 h-3" />
+                แคช
+              </Badge>
+            )}
+            {dataSource === 'fallback' && (
+              <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
+                ข้อมูลสำรอง
+              </Badge>
+            )}
           </div>
           <OnlineStatusBadge compact showConnectionType />
         </div>
