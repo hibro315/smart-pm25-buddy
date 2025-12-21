@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
+import { HospitalMapView } from "@/components/HospitalMapView";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getPosition } from "@/utils/geolocation";
 import { toast } from "sonner";
@@ -20,7 +22,9 @@ import {
   Locate,
   MessageCircle,
   ExternalLink,
-  Star
+  Star,
+  Map,
+  List
 } from "lucide-react";
 
 interface HospitalData {
@@ -156,6 +160,7 @@ export const EnhancedNearbyHospitals = () => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const loadNearbyHospitals = useCallback(async () => {
     setLoading(true);
@@ -343,130 +348,154 @@ export const EnhancedNearbyHospitals = () => {
           </div>
         </div>
 
-        {/* Hospital List */}
-        <ScrollArea className="h-[500px] pr-2">
-          <div className="space-y-3">
-            {hospitals.map((hospital, index) => (
-              <Card 
-                key={hospital.id} 
-                className="bg-card hover:shadow-md transition-all border-border overflow-hidden"
-              >
-                <div className="p-4 space-y-3">
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        {index < 3 && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            #{index + 1}
+        {/* View Toggle */}
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="list" className="gap-2">
+              <List className="w-4 h-4" />
+              รายการ
+            </TabsTrigger>
+            <TabsTrigger value="map" className="gap-2">
+              <Map className="w-4 h-4" />
+              แผนที่
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="map" className="mt-4">
+            <HospitalMapView 
+              hospitals={hospitals}
+              userLocation={userLocation}
+              onRefreshLocation={loadNearbyHospitals}
+            />
+          </TabsContent>
+
+          <TabsContent value="list" className="mt-4">
+            {/* Hospital List */}
+            <ScrollArea className="h-[500px] pr-2">
+              <div className="space-y-3">
+                {hospitals.map((hospital, index) => (
+                  <Card 
+                    key={hospital.id} 
+                    className="bg-card hover:shadow-md transition-all border-border overflow-hidden"
+                  >
+                    <div className="p-4 space-y-3">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            {index < 3 && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                #{index + 1}
+                              </Badge>
+                            )}
+                            <h3 className="font-semibold text-foreground leading-tight">
+                              {hospital.name}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <MapPin className="w-3 h-3" />
+                              <span className="font-medium text-primary">{hospital.distanceText}</span>
+                            </div>
+                            {hospital.rating && renderStars(hospital.rating)}
+                          </div>
+                        </div>
+                        {hospital.isOpen24h && (
+                          <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10">
+                            <Clock className="w-3 h-3" />
+                            24 ชม.
                           </Badge>
                         )}
-                        <h3 className="font-semibold text-foreground leading-tight">
-                          {hospital.name}
-                        </h3>
                       </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <MapPin className="w-3 h-3" />
-                          <span className="font-medium text-primary">{hospital.distanceText}</span>
-                        </div>
-                        {hospital.rating && renderStars(hospital.rating)}
+
+                      {/* Address */}
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {hospital.address}
+                      </p>
+
+                      {/* Specialties */}
+                      <div className="flex flex-wrap gap-1">
+                        {hospital.specialties.map((specialty, i) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] px-2 py-0.5">
+                            {specialty}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <Button
+                          onClick={() => handleCall(hospital.phone, hospital.name)}
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <Phone className="w-4 h-4" />
+                          โทรติดต่อ
+                        </Button>
+                        <Button
+                          onClick={() => handleNavigate(hospital)}
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Navigation className="w-4 h-4" />
+                          นำทาง
+                        </Button>
+                      </div>
+
+                      {/* Secondary Actions */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-border">
+                        {hospital.emergencyPhone && (
+                          <Button
+                            onClick={() => handleEmergencyCall(hospital.emergencyPhone!)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1 flex-1"
+                          >
+                            <Ambulance className="w-4 h-4" />
+                            <span className="text-xs">ฉุกเฉิน</span>
+                          </Button>
+                        )}
+                        {hospital.lineId && (
+                          <Button
+                            onClick={() => handleLineChat(hospital.lineId!)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-[#00B900] hover:text-[#00B900] hover:bg-[#00B900]/10 gap-1 flex-1"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="text-xs">LINE</span>
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(hospital.name)}`, '_blank')}
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 flex-1"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span className="text-xs">ข้อมูลเพิ่มเติม</span>
+                        </Button>
+                      </div>
+
+                      {/* Contact Info */}
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Phone className="w-3 h-3" />
+                        <span>{hospital.phone}</span>
+                        {hospital.emergencyPhone && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span className="text-destructive">ฉุกเฉิน: {hospital.emergencyPhone}</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    {hospital.isOpen24h && (
-                      <Badge variant="outline" className="gap-1 text-success border-success/30 bg-success/10">
-                        <Clock className="w-3 h-3" />
-                        24 ชม.
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Address */}
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {hospital.address}
-                  </p>
-
-                  {/* Specialties */}
-                  <div className="flex flex-wrap gap-1">
-                    {hospital.specialties.map((specialty, i) => (
-                      <Badge key={i} variant="secondary" className="text-[10px] px-2 py-0.5">
-                        {specialty}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <Button
-                      onClick={() => handleCall(hospital.phone, hospital.name)}
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Phone className="w-4 h-4" />
-                      โทรติดต่อ
-                    </Button>
-                    <Button
-                      onClick={() => handleNavigate(hospital)}
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      นำทาง
-                    </Button>
-                  </div>
-
-                  {/* Secondary Actions */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-border">
-                    {hospital.emergencyPhone && (
-                      <Button
-                        onClick={() => handleEmergencyCall(hospital.emergencyPhone!)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1 flex-1"
-                      >
-                        <Ambulance className="w-4 h-4" />
-                        <span className="text-xs">ฉุกเฉิน</span>
-                      </Button>
-                    )}
-                    {hospital.lineId && (
-                      <Button
-                        onClick={() => handleLineChat(hospital.lineId!)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-[#00B900] hover:text-[#00B900] hover:bg-[#00B900]/10 gap-1 flex-1"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span className="text-xs">LINE</span>
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(hospital.name)}`, '_blank')}
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 flex-1"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span className="text-xs">ข้อมูลเพิ่มเติม</span>
-                    </Button>
-                  </div>
-
-                  {/* Contact Info */}
-                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <Phone className="w-3 h-3" />
-                    <span>{hospital.phone}</span>
-                    {hospital.emergencyPhone && (
-                      <>
-                        <span className="text-border">|</span>
-                        <span className="text-destructive">ฉุกเฉิน: {hospital.emergencyPhone}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
 
         {/* Offline Notice */}
         {!isOnline && (
