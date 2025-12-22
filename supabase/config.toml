@@ -27,3 +27,6 @@ verify_jwt = true  # Protect API key from unauthorized access
 
 [functions.search-nearby-hospitals]
 verify_jwt = false  # Allow hospital search without authentication
+
+[functions.analyze-phri]
+verify_jwt = true  # PHRI analysis requires authentication
