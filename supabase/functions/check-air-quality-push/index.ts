@@ -21,20 +21,94 @@ interface PushSubscription {
   };
 }
 
+interface HealthProfile {
+  age: number;
+  gender: string;
+  chronic_conditions: string[];
+  dust_sensitivity: string;
+  has_air_purifier: boolean;
+  physical_activity: string;
+}
+
+// Generate personalized health advice based on profile and PM2.5
+const generatePersonalizedAdvice = (pm25: number, aqi: number, profile: HealthProfile | null): string[] => {
+  const advice: string[] = [];
+  const conditions = profile?.chronic_conditions || [];
+  const dustSensitivity = profile?.dust_sensitivity || 'medium';
+  const age = profile?.age || 30;
+  const hasAirPurifier = profile?.has_air_purifier || false;
+  
+  // High risk conditions
+  const hasAsthma = conditions.some(c => c.toLowerCase().includes('asthma') || c.includes('หอบหืด'));
+  const hasCOPD = conditions.some(c => c.toLowerCase().includes('copd') || c.includes('ปอดอุดกั้น'));
+  const hasHeartDisease = conditions.some(c => c.toLowerCase().includes('heart') || c.includes('หัวใจ'));
+  const hasAllergy = conditions.some(c => c.toLowerCase().includes('allergy') || c.includes('ภูมิแพ้'));
+  const isHighRisk = hasAsthma || hasCOPD || hasHeartDisease || age > 60 || age < 12;
+  
+  // Base advice by PM2.5 level (Thai standard)
+  if (pm25 > 90) {
+    advice.push('🚨 ห้ามออกนอกอาคารโดยเด็ดขาด');
+    advice.push('🏠 ปิดหน้าต่างและประตูให้สนิท');
+    if (hasAirPurifier) {
+      advice.push('🌀 เปิดเครื่องฟอกอากาศตลอดเวลา');
+    }
+  } else if (pm25 > 50) {
+    advice.push('⚠️ จำกัดกิจกรรมกลางแจ้ง');
+    advice.push('😷 สวมหน้ากาก N95/KF94 ทุกครั้ง');
+  } else if (pm25 > 37) {
+    advice.push('😷 แนะนำสวมหน้ากากเมื่อออกนอกอาคาร');
+    if (isHighRisk) {
+      advice.push('⚠️ กลุ่มเสี่ยงควรระมัดระวังเป็นพิเศษ');
+    }
+  }
+  
+  // Condition-specific advice
+  if (hasAsthma && pm25 > 37) {
+    advice.push('💊 หอบหืด: พกยาพ่นขยายหลอดลมติดตัว');
+  }
+  
+  if (hasCOPD && pm25 > 37) {
+    advice.push('🫁 COPD: หลีกเลี่ยงการออกแรงมาก ตรวจ SpO2 บ่อยขึ้น');
+  }
+  
+  if (hasHeartDisease && pm25 > 50) {
+    advice.push('❤️ โรคหัวใจ: หลีกเลี่ยงออกกำลังกายหนัก วัดความดันเป็นระยะ');
+  }
+  
+  if (hasAllergy && pm25 > 37) {
+    advice.push('🤧 ภูมิแพ้: รับประทานยาแก้แพ้ตามแพทย์สั่ง');
+  }
+  
+  // Age-specific advice
+  if (age > 60 && pm25 > 50) {
+    advice.push('👴 ผู้สูงอายุ: ควรอยู่ในอาคารที่มีระบบกรองอากาศ');
+  }
+  
+  if (age < 12 && pm25 > 50) {
+    advice.push('👶 เด็ก: งดกิจกรรมกลางแจ้งและพีอีที่โรงเรียน');
+  }
+  
+  // High sensitivity
+  if (dustSensitivity === 'high' && pm25 > 37) {
+    advice.push('⚡ คุณมีความไวต่อฝุ่นสูง: ใช้ความระมัดระวังเป็นพิเศษ');
+  }
+  
+  return advice.slice(0, 4); // Max 4 advice items for notification
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Starting air quality check for push notifications...');
+    console.log('Starting personalized air quality check for push notifications...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get all active push subscriptions from a hypothetical table
-    // Note: You'll need to create this table to store push subscriptions
+    // Get all active push subscriptions
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions')
       .select('*')
@@ -57,6 +131,13 @@ serve(async (req) => {
           continue;
         }
 
+        // Fetch user's health profile
+        const { data: healthProfile } = await supabase
+          .from('health_profiles')
+          .select('*')
+          .eq('user_id', sub.user_id)
+          .maybeSingle();
+
         // Fetch air quality for this location
         const { data: aqData, error: aqError } = await supabase.functions.invoke('get-air-quality', {
           body: { 
@@ -77,35 +158,57 @@ serve(async (req) => {
         // Calculate PM2.5 change
         const pm25Change = Math.abs(currentPM25 - previousPM25);
         
-        console.log(`Subscription ${sub.id}: PM2.5 ${previousPM25} → ${currentPM25} (change: ${pm25Change})`);
+        // Check if user has high-risk conditions
+        const conditions = healthProfile?.chronic_conditions || [];
+        const isHighRisk = conditions.some((c: string) => 
+          c.toLowerCase().includes('asthma') || 
+          c.toLowerCase().includes('copd') || 
+          c.toLowerCase().includes('heart') ||
+          c.includes('หอบหืด') ||
+          c.includes('ปอดอุดกั้น') ||
+          c.includes('หัวใจ')
+        ) || (healthProfile?.age && (healthProfile.age > 60 || healthProfile.age < 12));
+        
+        // Adjust threshold for high-risk users (more sensitive)
+        const adjustedThreshold = isHighRisk ? Math.min(threshold, 37) : threshold;
+        
+        console.log(`Subscription ${sub.id}: PM2.5 ${previousPM25} → ${currentPM25} (threshold: ${adjustedThreshold}, high-risk: ${isHighRisk})`);
 
         // Check if notification should be sent
         const shouldNotify = 
-          currentPM25 > threshold || // Exceeds threshold
-          pm25Change > 10; // Significant change (>10 µg/m³)
+          currentPM25 > adjustedThreshold || // Exceeds threshold
+          pm25Change > (isHighRisk ? 5 : 10) || // Significant change (lower for high-risk)
+          (isHighRisk && currentPM25 > 37); // High-risk users get notified earlier
 
         if (shouldNotify) {
+          // Generate personalized health advice
+          const personalizedAdvice = generatePersonalizedAdvice(currentPM25, aqData.aqi || 0, healthProfile);
+          const adviceText = personalizedAdvice.length > 0 
+            ? '\n\n' + personalizedAdvice.join('\n') 
+            : '';
+          
           // Determine rich notification content and vibration pattern
           let title = '';
           let body = '';
           let vibrate = [300, 100, 300];
+          const riskMultiplier = isHighRisk ? 1.5 : 1;
 
-          if (currentPM25 > 150) {
-            title = '🚨 อันตราย! ค่าฝุ่น PM2.5 สูงมาก';
-            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}\n\n❌ ห้ามออกนอกอาคาร\n😷 สวมหน้ากาก N95\n🏠 อยู่ในที่ร่มปิดหน้าต่าง`;
-            vibrate = [500, 200, 500, 200, 500, 200, 500];
-          } else if (currentPM25 > 100) {
-            title = '⚠️ แจ้งเตือน: ค่าฝุ่น PM2.5 สูง';
-            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}\n\n⏱️ จำกัดเวลานอกอาคาร\n😷 สวมหน้ากากทุกครั้ง\n🚫 หลีกเลี่ยงออกกำลังกาย`;
-            vibrate = [400, 150, 400, 150, 400, 150, 400];
-          } else if (pm25Change > 10) {
-            title = '📈 ค่าฝุ่น PM2.5 เปลี่ยนแปลง';
-            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}\n\n⚠️ ค่าฝุ่นเพิ่มขึ้นอย่างรวดเร็ว\n😷 ควรสวมหน้ากาก`;
-            vibrate = [300, 100, 300, 100, 300, 100, 300];
+          if (currentPM25 > 90) {
+            title = isHighRisk ? '🚨 อันตรายมาก! แจ้งเตือนเร่งด่วนสำหรับคุณ' : '🚨 อันตราย! ค่าฝุ่น PM2.5 สูงมาก';
+            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}${adviceText}`;
+            vibrate = [500, 200, 500, 200, 500, 200, 500].map(v => Math.round(v * riskMultiplier));
           } else if (currentPM25 > 50) {
-            title = '⚠️ ค่าฝุ่น PM2.5 เกินเกณฑ์';
-            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}\n\n😷 แนะนำสวมหน้ากาก\n⚠️ กลุ่มเสี่ยงควรระมัดระวัง`;
-            vibrate = [300, 100, 300, 100, 300];
+            title = isHighRisk ? '⚠️ แจ้งเตือนเร่งด่วน: ค่าฝุ่นสูงสำหรับคุณ' : '⚠️ แจ้งเตือน: ค่าฝุ่น PM2.5 สูง';
+            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}${adviceText}`;
+            vibrate = [400, 150, 400, 150, 400, 150, 400].map(v => Math.round(v * riskMultiplier));
+          } else if (currentPM25 > 37) {
+            title = isHighRisk ? '🩺 แจ้งเตือนสำหรับสุขภาพของคุณ' : '📈 ค่าฝุ่น PM2.5 เพิ่มขึ้น';
+            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}${adviceText}`;
+            vibrate = [300, 100, 300, 100, 300].map(v => Math.round(v * riskMultiplier));
+          } else if (pm25Change > 5) {
+            title = '📊 ค่าฝุ่น PM2.5 เปลี่ยนแปลง';
+            body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}${adviceText}`;
+            vibrate = [200, 100, 200, 100, 200];
           } else {
             title = '✅ คุณภาพอากาศปกติ';
             body = `PM2.5: ${currentPM25} µg/m³\n📍 ${aqData.location || 'ตำแหน่งของคุณ'}`;
@@ -120,15 +223,21 @@ serve(async (req) => {
               body,
               pm25: currentPM25,
               location: aqData.location,
-              vibrate
+              vibrate,
+              requireInteraction: currentPM25 > 50 || isHighRisk,
+              data: {
+                isHighRisk,
+                personalizedAdvice,
+                conditions: conditions.slice(0, 3)
+              }
             }
           });
 
           if (pushError) {
             console.error(`Error sending notification for subscription ${sub.id}:`, pushError);
           } else {
-            console.log(`✅ Notification sent to subscription ${sub.id}`);
-            results.push({ subscription_id: sub.id, success: true });
+            console.log(`✅ Personalized notification sent to subscription ${sub.id} (high-risk: ${isHighRisk})`);
+            results.push({ subscription_id: sub.id, success: true, isHighRisk });
           }
 
           // Update last_pm25 in database
