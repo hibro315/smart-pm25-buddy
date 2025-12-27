@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, BellOff, Smartphone, AlertCircle } from 'lucide-react';
+import { Bell, BellOff, Smartphone, AlertCircle, RefreshCw, Check } from 'lucide-react';
 import { usePushNotification } from '@/hooks/usePushNotification';
+import { useToast } from '@/hooks/use-toast';
 
 export const PushNotificationSettings = () => {
   const { 
@@ -12,14 +14,38 @@ export const PushNotificationSettings = () => {
     isSubscribed, 
     loading, 
     subscribe, 
-    unsubscribe 
+    unsubscribe,
+    triggerSync
   } = usePushNotification();
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
 
   const handleToggle = async (checked: boolean) => {
     if (checked) {
       await subscribe();
     } else {
       await unsubscribe();
+    }
+  };
+
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      const success = await triggerSync();
+      if (success) {
+        toast({
+          title: '✅ ตรวจสอบคุณภาพอากาศแล้ว',
+          description: 'ระบบจะแจ้งเตือนหากค่าฝุ่นเปลี่ยนแปลง',
+        });
+      } else {
+        toast({
+          title: '⚠️ ไม่สามารถตรวจสอบได้',
+          description: 'กรุณาลองใหม่อีกครั้ง',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -82,6 +108,7 @@ export const PushNotificationSettings = () => {
           <span className="text-sm font-medium">สถานะ:</span>
           {isSubscribed ? (
             <Badge variant="default" className="bg-green-600">
+              <Check className="h-3 w-3 mr-1" />
               เปิดใช้งานอยู่
             </Badge>
           ) : (
@@ -89,15 +116,40 @@ export const PushNotificationSettings = () => {
           )}
         </div>
 
+        {/* Background Sync Info */}
+        {isSubscribed && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">🔄 การตรวจสอบอัตโนมัติ</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              ระบบจะตรวจสอบค่า AQI ทุก 15 นาที และแจ้งเตือนเมื่อค่าเปลี่ยนแปลง
+              แม้คุณปิดแอปหรือเบราว์เซอร์
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualSync}
+              disabled={syncing}
+              className="w-full"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'กำลังตรวจสอบ...' : 'ตรวจสอบตอนนี้'}
+            </Button>
+          </div>
+        )}
+
         {/* Info Section */}
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <p className="text-sm font-medium">🔔 การทำงานของ Push Notifications</p>
           <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
             <li>ได้รับการแจ้งเตือนแบบ Real-time</li>
             <li>ทำงานแม้ปิดแอปหรือปิดเบราว์เซอร์</li>
+            <li>ตรวจสอบ AQI ทุก 15 นาที โดยอัตโนมัติ</li>
             <li>มีการสั่นเครื่องตามระดับความรุนแรง</li>
             <li>แจ้งเตือนเมื่อ PM2.5 &gt; 50 µg/m³</li>
-            <li>แจ้งเตือนเมื่อค่าฝุ่นเปลี่ยนแปลง &gt; 10 µg/m³</li>
+            <li>แจ้งเตือนเมื่อค่าฝุ่นเพิ่มขึ้น &gt; 20 µg/m³</li>
           </ul>
         </div>
 

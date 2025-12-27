@@ -270,6 +270,24 @@ const fetchAirQuality = async (latitude, longitude) => {
   }
 };
 
+// Get previous air quality data from IndexedDB
+const getPreviousAirQuality = async () => {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get('last-air-quality');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting previous air quality:', error);
+    return null;
+  }
+};
+
 // Check if notification should be triggered based on AQI thresholds and settings
 const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged, settings) => {
   // Check quiet hours
@@ -283,6 +301,7 @@ const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged, setting
   
   // Calculate AQI change
   const aqiChange = previousAqi ? Math.abs(aqi - previousAqi) : 0;
+  const aqiIncreased = previousAqi ? aqi > previousAqi : false;
   
   // Always notify on location change if AQI exceeds threshold
   if (hasLocationChanged && aqi > threshold) {
@@ -294,14 +313,19 @@ const shouldNotify = (aqi, userProfile, previousAqi, hasLocationChanged, setting
     return { notify: true, reason: 'health_conditions' };
   }
   
-  // Notify if AQI significantly increased (>25 points change) and exceeds threshold
-  if (aqiChange > 25 && aqi > threshold) {
+  // Notify if AQI significantly increased (>20 points change) 
+  if (aqiIncreased && aqiChange > 20) {
     return { notify: true, reason: 'aqi_spike' };
   }
   
-  // Notify if AQI exceeds user's threshold
-  if (aqi > threshold) {
+  // Notify if AQI exceeds user's threshold (only when it's a new breach)
+  if (aqi > threshold && (!previousAqi || previousAqi <= threshold)) {
     return { notify: true, reason: 'threshold_exceeded' };
+  }
+  
+  // Notify on critical levels regardless
+  if (aqi > 150) {
+    return { notify: true, reason: 'critical_level' };
   }
   
   return { notify: false, reason: null };
@@ -629,7 +653,27 @@ sw.addEventListener('push', (event) => {
 // Handle service worker activation
 sw.addEventListener('activate', (event) => {
   console.log('✅ Service Worker activated');
-  event.waitUntil(sw.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      sw.clients.claim(),
+      // Try to register periodic sync on activation
+      (async () => {
+        if ('periodicSync' in sw.registration) {
+          try {
+            const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+            if (status.state === 'granted') {
+              await sw.registration.periodicSync.register(SYNC_TAG, {
+                minInterval: 15 * 60 * 1000 // 15 minutes
+              });
+              console.log('✅ Periodic sync registered on activation');
+            }
+          } catch (e) {
+            console.log('⚠️ Periodic sync registration failed:', e);
+          }
+        }
+      })()
+    ])
+  );
 });
 
 // Handle service worker installation
@@ -638,4 +682,69 @@ sw.addEventListener('install', (event) => {
   sw.skipWaiting();
 });
 
-console.log('✅ Service Worker loaded with Periodic Background Sync support');
+// Handle background fetch (for browsers that support it)
+sw.addEventListener('backgroundfetchsuccess', (event) => {
+  console.log('📥 Background fetch succeeded');
+  event.waitUntil(handlePeriodicSync());
+});
+
+// Handle sync event (one-time sync when back online)
+sw.addEventListener('sync', (event) => {
+  console.log('🔄 Sync event received:', event.tag);
+  if (event.tag === SYNC_TAG || event.tag === 'aqi-sync') {
+    event.waitUntil(handlePeriodicSync());
+  }
+});
+
+// Message handler for triggering manual sync from app
+sw.addEventListener('message', async (event) => {
+  console.log('📩 Message received:', event.data);
+  
+  if (event.data?.type === 'TRIGGER_SYNC') {
+    console.log('🔄 Manual sync triggered from app');
+    await handlePeriodicSync();
+    if (event.ports[0]) {
+      event.ports[0].postMessage({ success: true });
+    }
+  }
+  
+  if (event.data?.type === 'UPDATE_LOCATION') {
+    const { latitude, longitude, location } = event.data;
+    await saveLocation(latitude, longitude, location);
+    console.log('📍 Location updated from app');
+  }
+  
+  if (event.data?.type === 'UPDATE_HEALTH_PROFILE') {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      await store.put({
+        id: 'health-profile',
+        ...event.data.profile,
+        timestamp: Date.now()
+      });
+      console.log('👤 Health profile updated from app');
+    } catch (e) {
+      console.error('Error saving health profile:', e);
+    }
+  }
+  
+  if (event.data?.type === 'UPDATE_NOTIFICATION_SETTINGS') {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      await store.put({
+        id: 'notification-settings',
+        ...event.data.settings,
+        timestamp: Date.now()
+      });
+      console.log('🔔 Notification settings updated from app');
+    } catch (e) {
+      console.error('Error saving notification settings:', e);
+    }
+  }
+});
+
+console.log('✅ Service Worker loaded with Periodic Background Sync + Push Notification support');

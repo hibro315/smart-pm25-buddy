@@ -352,8 +352,73 @@ export const usePushNotification = () => {
           } as any)
           .eq('user_id', user.id);
       }
+
+      // Also update service worker for background sync
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        registration.active?.postMessage({
+          type: 'UPDATE_LOCATION',
+          latitude,
+          longitude,
+          location: 'Current Location'
+        });
+      }
     } catch (error) {
       console.error('Error updating location:', error);
+    }
+  };
+
+  // Trigger manual sync with service worker
+  const triggerSync = async (): Promise<boolean> => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Try to use background sync if available
+        if ('sync' in registration) {
+          await (registration as any).sync.register('aqi-sync');
+          console.log('✅ Background sync registered');
+          return true;
+        }
+        
+        // Fallback: send message to service worker
+        const messageChannel = new MessageChannel();
+        return new Promise((resolve) => {
+          messageChannel.port1.onmessage = (event) => {
+            resolve(event.data?.success ?? false);
+          };
+          registration.active?.postMessage(
+            { type: 'TRIGGER_SYNC' },
+            [messageChannel.port2]
+          );
+          // Timeout after 30 seconds
+          setTimeout(() => resolve(false), 30000);
+        });
+      }
+      return false;
+    } catch (error) {
+      console.error('Error triggering sync:', error);
+      return false;
+    }
+  };
+
+  // Update notification settings in service worker
+  const updateNotificationSettings = async (settings: {
+    aqi_threshold?: number;
+    enable_quiet_hours?: boolean;
+    quiet_hours_start?: string;
+    quiet_hours_end?: string;
+  }) => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        registration.active?.postMessage({
+          type: 'UPDATE_NOTIFICATION_SETTINGS',
+          settings
+        });
+      }
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
     }
   };
 
@@ -364,7 +429,9 @@ export const usePushNotification = () => {
     loading,
     subscribe,
     unsubscribe,
-    updateLocation
+    updateLocation,
+    triggerSync,
+    updateNotificationSettings
   };
 };
 
