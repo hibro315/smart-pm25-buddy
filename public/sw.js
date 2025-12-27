@@ -155,8 +155,96 @@ const getHealthProfile = async () => {
     });
   } catch (error) {
     console.error('Error getting health profile:', error);
+    // Try localStorage fallback
+    try {
+      const stored = localStorage.getItem('healthProfile');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error reading localStorage:', e);
+    }
     return null;
   }
+};
+
+// Helper: Generate personalized health advice based on profile and AQI
+const generatePersonalizedAdvice = (aqi, pm25, healthProfile) => {
+  const advice = [];
+  const conditions = healthProfile?.chronicConditions || [];
+  const dustSensitivity = healthProfile?.dustSensitivity || 'medium';
+  const age = healthProfile?.age || 30;
+  const hasAirPurifier = healthProfile?.hasAirPurifier || false;
+  
+  // High risk conditions
+  const hasAsthma = conditions.includes('asthma') || conditions.includes('หอบหืด');
+  const hasCOPD = conditions.includes('COPD') || conditions.includes('ปอดอุดกั้นเรื้อรัง');
+  const hasHeartDisease = conditions.includes('heart disease') || conditions.includes('โรคหัวใจ');
+  const hasAllergy = conditions.includes('allergy') || conditions.includes('ภูมิแพ้');
+  const isHighRisk = hasAsthma || hasCOPD || hasHeartDisease || age > 60 || age < 12;
+  
+  // Base advice by AQI level
+  if (aqi > 200) {
+    advice.push('🚨 ห้ามออกนอกอาคารโดยเด็ดขาด');
+    advice.push('🏠 ปิดหน้าต่างและประตูให้สนิท');
+    if (hasAirPurifier) {
+      advice.push('🌀 เปิดเครื่องฟอกอากาศตลอดเวลา');
+    } else {
+      advice.push('💨 พิจารณาใช้ผ้าชุบน้ำปิดช่องระบายอากาศ');
+    }
+  } else if (aqi > 150) {
+    advice.push('⚠️ จำกัดกิจกรรมกลางแจ้งเหลือน้อยที่สุด');
+    advice.push('😷 สวมหน้ากาก N95 หรือ KF94 ทุกครั้ง');
+  } else if (aqi > 100) {
+    advice.push('😷 แนะนำสวมหน้ากากเมื่อออกนอกอาคาร');
+    if (isHighRisk) {
+      advice.push('⚠️ กลุ่มเสี่ยงควรหลีกเลี่ยงกิจกรรมกลางแจ้ง');
+    }
+  }
+  
+  // Condition-specific advice
+  if (hasAsthma && aqi > 50) {
+    advice.push('💊 ผู้ป่วยหอบหืด: พกยาพ่นขยายหลอดลมติดตัว');
+    if (aqi > 100) {
+      advice.push('🩺 หอบหืด: ระวังอาการหายใจลำบาก หากมีอาการรีบพบแพทย์');
+    }
+  }
+  
+  if (hasCOPD && aqi > 50) {
+    advice.push('🫁 ผู้ป่วย COPD: หลีกเลี่ยงการออกแรงมาก');
+    if (aqi > 100) {
+      advice.push('📋 COPD: ตรวจวัด SpO2 บ่อยขึ้น หากต่ำกว่า 92% รีบพบแพทย์');
+    }
+  }
+  
+  if (hasHeartDisease && aqi > 75) {
+    advice.push('❤️ โรคหัวใจ: หลีกเลี่ยงการออกกำลังกายหนัก');
+    advice.push('💓 วัดความดันโลหิตและชีพจรเป็นระยะ');
+  }
+  
+  if (hasAllergy && aqi > 50) {
+    advice.push('🤧 ภูมิแพ้: อาจมีอาการคัดจมูก น้ำมูกไหลมากขึ้น');
+    advice.push('💊 รับประทานยาแก้แพ้ตามแพทย์สั่ง');
+  }
+  
+  // Age-specific advice
+  if (age > 60 && aqi > 75) {
+    advice.push('👴 ผู้สูงอายุ: ควรอยู่ในอาคารที่มีระบบกรองอากาศ');
+  }
+  
+  if (age < 12 && aqi > 75) {
+    advice.push('👶 เด็ก: งดกิจกรรมกลางแจ้งและพีอีที่โรงเรียน');
+  }
+  
+  // Sensitivity-specific advice
+  if (dustSensitivity === 'high' && aqi > 50) {
+    advice.push('⚡ คุณมีความไวต่อฝุ่นสูง: ใช้ความระมัดระวังเป็นพิเศษ');
+  }
+  
+  // General advice
+  if (aqi > 50) {
+    advice.push('💧 ดื่มน้ำมากๆ และหลีกเลี่ยงเครื่องดื่มแอลกอฮอล์');
+  }
+  
+  return advice.slice(0, 5); // Max 5 advice items
 };
 
 // Helper: Save location to IndexedDB
@@ -371,8 +459,8 @@ const getAQIMessage = (aqi) => {
   }
 };
 
-// Show Rich Notification (Shopee-style) with vibration based on AQI
-const showAirQualityNotification = async (aqi, location, reason) => {
+// Show Rich Notification with personalized health advice and vibration based on AQI
+const showAirQualityNotification = async (aqi, location, reason, healthProfile = null) => {
   try {
     const aqiInfo = getAQIMessage(aqi);
     let title = '';
@@ -382,37 +470,61 @@ const showAirQualityNotification = async (aqi, location, reason) => {
     let vibrate = [300, 100, 300];
     let requireInteraction = false;
     
+    // Get personalized health advice
+    const personalizedAdvice = generatePersonalizedAdvice(aqi, aqi, healthProfile);
+    const adviceText = personalizedAdvice.length > 0 
+      ? '\n\n' + personalizedAdvice.join('\n') 
+      : '';
+    
+    // Check if user has high-risk conditions
+    const conditions = healthProfile?.chronicConditions || [];
+    const isHighRisk = conditions.some(c => 
+      ['asthma', 'COPD', 'heart disease', 'หอบหืด', 'ปอดอุดกั้นเรื้อรัง', 'โรคหัวใจ'].includes(c)
+    ) || (healthProfile?.age && (healthProfile.age > 60 || healthProfile.age < 12));
+    
+    // Adjust vibration for high-risk users (more intense)
+    const riskMultiplier = isHighRisk ? 1.5 : 1;
+    
     // Determine rich notification content based on AQI severity
     if (aqi > 200) {
       title = '🚨 อันตราย! คุณภาพอากาศแย่มาก';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n❌ ห้ามออกนอกอาคาร\n😷 สวมหน้ากาก N95\n🏠 อยู่ในที่ร่มปิดหน้าต่าง`;
-      vibrate = [500, 200, 500, 200, 500, 200, 500];
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
+      vibrate = [500, 200, 500, 200, 500, 200, 500].map(v => Math.round(v * riskMultiplier));
       requireInteraction = true;
       icon = '/icon-512.png';
     } else if (aqi > 150) {
-      title = '⚠️ แจ้งเตือน: อากาศไม่ดีต่อสุขภาพ';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n⏱️ จำกัดเวลานอกอาคาร\n😷 สวมหน้ากากทุกครั้ง\n🚫 หลีกเลี่ยงออกกำลังกาย`;
-      vibrate = [400, 150, 400, 150, 400, 150, 400];
+      title = isHighRisk ? '🚨 เร่งด่วน! อากาศอันตรายสำหรับคุณ' : '⚠️ แจ้งเตือน: อากาศไม่ดีต่อสุขภาพ';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
+      vibrate = [400, 150, 400, 150, 400, 150, 400].map(v => Math.round(v * riskMultiplier));
       requireInteraction = true;
       icon = '/icon-512.png';
     } else if (aqi > 100) {
-      title = '⚠️ อากาศไม่ดีสำหรับกลุ่มเสี่ยง';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n😷 แนะนำสวมหน้ากาก\n⚠️ กลุ่มเสี่ยงควรระมัดระวัง`;
-      vibrate = [300, 100, 300, 100, 300];
+      title = isHighRisk ? '⚠️ แจ้งเตือนสำหรับกลุ่มเสี่ยง' : '⚠️ อากาศไม่ดีสำหรับกลุ่มเสี่ยง';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
+      vibrate = [300, 100, 300, 100, 300].map(v => Math.round(v * riskMultiplier));
+      requireInteraction = isHighRisk;
+    } else if (aqi > 50 && isHighRisk) {
+      title = '📊 แจ้งเตือนคุณภาพอากาศ';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
+      vibrate = [200, 100, 200, 100, 200];
     } else if (reason === 'location_change') {
       title = '📍 เปลี่ยนพื้นที่';
       body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n✅ คุณภาพอากาศ${aqiInfo.category}`;
       vibrate = [200, 100, 200];
     } else if (reason === 'aqi_spike') {
       title = '📈 คุณภาพอากาศเปลี่ยนแปลง';
-      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}\n\n⚠️ ค่าฝุ่นเพิ่มขึ้นอย่างรวดเร็ว\n😷 ควรสวมหน้ากาก`;
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
       vibrate = [300, 100, 300, 100, 300, 100, 300];
+    } else if (reason === 'health_conditions') {
+      title = '🩺 แจ้งเตือนสำหรับสุขภาพของคุณ';
+      body = `AQI ${aqi} - ${aqiInfo.thai}\n📍 ${location}${adviceText}`;
+      vibrate = [250, 100, 250, 100, 250];
     } else {
       title = `AQI ${aqi} - ${aqiInfo.category}`;
       body = `${aqiInfo.message}\n📍 ${location}\n\n✅ ปลอดภัยสำหรับกิจกรรมกลางแจ้ง`;
     }
     
-    // Create rich notification with Shopee-style formatting
+    // Create rich notification with personalized content
     await sw.registration.showNotification(title, {
       body,
       icon,
@@ -431,23 +543,31 @@ const showAirQualityNotification = async (aqi, location, reason) => {
         reason,
         color: aqiInfo.color,
         timestamp: Date.now(),
-        url: '/'
+        url: '/',
+        isHighRisk,
+        personalizedAdvice
       },
       actions: [
         { action: 'view', title: '📊 ดูรายละเอียด', icon: '/icon-192.png' },
-        { action: 'map', title: '🗺️ ดูแผนที่', icon: '/icon-192.png' },
+        { action: 'health', title: '🩺 คำแนะนำสุขภาพ', icon: '/icon-192.png' },
         { action: 'dismiss', title: '❌ ปิด' }
       ]
     });
     
-    // Additional vibration for critical alerts
-    if (aqi > 150 && 'vibrate' in navigator) {
+    // Additional vibration for critical alerts or high-risk users
+    if ((aqi > 150 || (aqi > 100 && isHighRisk)) && 'vibrate' in navigator) {
       setTimeout(() => {
         navigator.vibrate(vibrate);
       }, 1000);
+      // Extra vibration for very high risk
+      if (aqi > 200) {
+        setTimeout(() => {
+          navigator.vibrate(vibrate);
+        }, 3000);
+      }
     }
     
-    console.log('✅ Rich notification shown:', { aqi, location, category: aqiInfo.category, reason, vibrate });
+    console.log('✅ Personalized notification shown:', { aqi, location, category: aqiInfo.category, reason, isHighRisk, adviceCount: personalizedAdvice.length });
   } catch (error) {
     console.error('Error showing notification:', error);
   }
@@ -541,7 +661,8 @@ const handlePeriodicSync = async () => {
       await showAirQualityNotification(
         airQualityData.aqi,
         airQualityData.location || 'ตำแหน่งปัจจุบัน',
-        notificationCheck.reason
+        notificationCheck.reason,
+        healthProfile
       );
     } else if (notificationCheck.reason === 'quiet_hours') {
       console.log('⏰ Notification suppressed due to quiet hours');
@@ -584,7 +705,12 @@ sw.addEventListener('notificationclick', (event) => {
   } else if (event.action === 'map') {
     // Open map view
     event.waitUntil(
-      sw.clients.openWindow('/?view=map')
+      sw.clients.openWindow('/map')
+    );
+  } else if (event.action === 'health') {
+    // Open health advice page
+    event.waitUntil(
+      sw.clients.openWindow('/chat?tab=health')
     );
   } else if (event.action === 'dismiss') {
     // Just close, no action

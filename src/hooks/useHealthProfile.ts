@@ -159,6 +159,29 @@ export const useHealthProfile = () => {
       localStorage.setItem('healthProfile', JSON.stringify(validatedProfile));
       setProfile(validatedProfile as HealthProfile);
 
+      // Sync health profile to service worker for background notifications
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          registration.active?.postMessage({
+            type: 'UPDATE_HEALTH_PROFILE',
+            profile: {
+              age: validatedProfile.age,
+              gender: validatedProfile.gender,
+              chronicConditions: validatedProfile.chronicConditions,
+              dustSensitivity: validatedProfile.dustSensitivity,
+              hasAirPurifier: validatedProfile.hasAirPurifier,
+              physicalActivity: validatedProfile.physicalActivity,
+              allergies: validatedProfile.allergies,
+              immunoCompromised: validatedProfile.immunoCompromised,
+            }
+          });
+          console.log('✅ Health profile synced to service worker');
+        } catch (swError) {
+          console.warn('Could not sync profile to service worker:', swError);
+        }
+      }
+
       // Try to save to Supabase Cloud (but don't fail if it doesn't work)
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
@@ -212,7 +235,7 @@ export const useHealthProfile = () => {
         } else {
           toast({
             title: '✅ บันทึกโปรไฟล์สำเร็จ',
-            description: 'ข้อมูลสุขภาพของคุณถูกบันทึกแล้ว',
+            description: 'ข้อมูลสุขภาพของคุณถูกบันทึกและจะใช้ในการแจ้งเตือนแบบเฉพาะบุคคล',
           });
         }
       } catch (cloudError) {
