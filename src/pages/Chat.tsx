@@ -22,7 +22,6 @@ interface CachedAirQuality {
 const Chat = () => {
   const [airQuality, setAirQuality] = useState<CachedAirQuality | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPHRI, setCurrentPHRI] = useState<number | null>(null);
 
   useEffect(() => {
     const loadCachedData = () => {
@@ -42,12 +41,6 @@ const Chat = () => {
     loadCachedData();
   }, []);
 
-  const getPHRIStatus = (phri: number) => {
-    if (phri >= 8) return { text: 'ฉุกเฉิน', color: 'bg-red-500' };
-    if (phri >= 6) return { text: 'เร่งด่วน', color: 'bg-orange-500' };
-    if (phri >= 3) return { text: 'เตือน', color: 'bg-yellow-500' };
-    return { text: 'ปลอดภัย', color: 'bg-green-500' };
-  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -56,12 +49,6 @@ const Chat = () => {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold">Health AI</h1>
-            {currentPHRI !== null && (
-              <Badge className={getPHRIStatus(currentPHRI).color}>
-                <TrendingUp className="h-3 w-3 mr-1" />
-                PHRI: {currentPHRI.toFixed(1)}
-              </Badge>
-            )}
           </div>
           <UserMenu />
         </div>
@@ -94,7 +81,6 @@ const Chat = () => {
                 temperature={airQuality?.temperature}
                 humidity={airQuality?.humidity}
                 location={airQuality?.location}
-                onPHRIUpdate={setCurrentPHRI}
               />
             )}
           </TabsContent>

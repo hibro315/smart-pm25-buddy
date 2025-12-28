@@ -16,11 +16,6 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
-  phriData?: {
-    phri: number;
-    alertLevel: string;
-    saved: boolean;
-  };
 }
 
 interface ChatGPTStyleChatbotProps {
@@ -29,7 +24,6 @@ interface ChatGPTStyleChatbotProps {
   temperature?: number;
   humidity?: number;
   location?: string;
-  onPHRIUpdate?: (phri: number) => void;
 }
 
 export const ChatGPTStyleChatbot = ({ 
@@ -38,7 +32,6 @@ export const ChatGPTStyleChatbot = ({
   temperature, 
   humidity,
   location,
-  onPHRIUpdate
 }: ChatGPTStyleChatbotProps) => {
   const { profile } = useHealthProfile();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -222,10 +215,9 @@ export const ChatGPTStyleChatbot = ({
         }
       }
 
-      // After streaming, analyze PHRI from conversation
+      // After streaming, speak the response
       if (assistantContent) {
         speak(assistantContent);
-        analyzePHRIFromChat(assistantContent);
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -236,59 +228,6 @@ export const ChatGPTStyleChatbot = ({
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const analyzePHRIFromChat = async (content: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      const response = await supabase.functions.invoke('analyze-phri', {
-        body: {
-          chatContent: content,
-          pm25,
-          aqi,
-          temperature,
-          humidity,
-          location,
-          profile: profile ? {
-            age: profile.age,
-            gender: profile.gender,
-            chronicConditions: profile.chronicConditions,
-            dustSensitivity: profile.dustSensitivity,
-          } : null,
-        },
-      });
-
-      if (response.data?.phri !== undefined) {
-        onPHRIUpdate?.(response.data.phri);
-        
-        // Update last message with PHRI data
-        setMessages(prev => {
-          const updated = [...prev];
-          let lastAssistant = -1;
-          for (let i = updated.length - 1; i >= 0; i--) {
-            if (updated[i].role === 'assistant') {
-              lastAssistant = i;
-              break;
-            }
-          }
-          if (lastAssistant !== -1) {
-            updated[lastAssistant] = {
-              ...updated[lastAssistant],
-              phriData: {
-                phri: response.data.phri,
-                alertLevel: response.data.alertLevel,
-                saved: response.data.saved,
-              }
-            };
-          }
-          return updated;
-        });
-      }
-    } catch (error) {
-      console.error('PHRI analysis error:', error);
     }
   };
 
@@ -383,19 +322,6 @@ export const ChatGPTStyleChatbot = ({
                   >
                     <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                   </div>
-                  
-                  {/* PHRI Badge */}
-                  {message.phriData && (
-                    <div className="flex items-center gap-2 px-1">
-                      <Badge className={cn("text-xs", getAlertColor(message.phriData.alertLevel))}>
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        PHRI: {message.phriData.phri.toFixed(1)}
-                      </Badge>
-                      {message.phriData.saved && (
-                        <span className="text-xs text-muted-foreground">บันทึกแล้ว</span>
-                      )}
-                    </div>
-                  )}
                   
                   {message.timestamp && (
                     <p className="text-[10px] text-muted-foreground px-1">
