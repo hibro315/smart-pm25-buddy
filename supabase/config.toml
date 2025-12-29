@@ -1,17 +1,17 @@
 project_id = "mfieephfmgoqszratqhu"
 
 [functions.check-air-quality-push]
-verify_jwt = false  # Allow cron job to call without JWT
-schedule = "*/15 * * * *"  # Run every 15 minutes automatically
+verify_jwt = false
+schedule = "*/15 * * * *"
 
 [functions.send-push-notification]
-verify_jwt = true  # Requires authentication
+verify_jwt = true
 
 [functions.ai-health-advice]
-verify_jwt = true  # Prevent AI API quota abuse
+verify_jwt = true
 
 [functions.health-chat]
-verify_jwt = true  # Prevent AI API quota abuse
+verify_jwt = true
 
 [functions.weekly-health-summary]
 verify_jwt = true
@@ -20,13 +20,19 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.personalized-health-advice]
-verify_jwt = true  # Prevent AI API quota abuse
+verify_jwt = true
 
 [functions.get-mapbox-token]
-verify_jwt = true  # Protect API key from unauthorized access
+verify_jwt = true
 
 [functions.search-nearby-hospitals]
-verify_jwt = false  # Allow hospital search without authentication
+verify_jwt = false
 
 [functions.analyze-phri]
-verify_jwt = true  # PHRI analysis requires authentication
+verify_jwt = true
+
+[functions.get-route-pm25]
+verify_jwt = false
+
+[functions.get-air-quality]
+verify_jwt = false

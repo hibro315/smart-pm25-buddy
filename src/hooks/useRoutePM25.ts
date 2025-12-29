@@ -10,6 +10,8 @@ export interface RouteWithPM25 {
   averagePM25: number;
   maxPM25: number;
   healthAlert: string;
+  alertSeverity: string;
+  recommendations: string[];
   pm25Samples: number[];
   sampleLocations: number[][];
 }
@@ -20,6 +22,8 @@ interface RouteParams {
   endLat?: number;
   endLng?: number;
   destination?: string;
+  hasRespiratoryCondition?: boolean;
+  chronicConditions?: string[];
 }
 
 export const useRoutePM25 = () => {
@@ -35,20 +39,17 @@ export const useRoutePM25 = () => {
         body: params
       });
 
-      if (error) {
-        throw error;
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       setRoutes(data.routes);
       setRecommendedRoute(data.recommendedRoute);
       
+      const severity = data.recommendedRoute.alertSeverity;
       toast({
-        title: 'วิเคราะห์เส้นทางสำเร็จ',
-        description: `พบเส้นทางที่แนะนำ: PM2.5 เฉลี่ย ${data.recommendedRoute.averagePM25} µg/m³`,
+        title: severity === 'good' ? '✅ พบเส้นทางที่ปลอดภัย' : 'วิเคราะห์เส้นทางสำเร็จ',
+        description: `PM2.5 เฉลี่ย ${data.recommendedRoute.averagePM25} µg/m³`,
+        variant: severity === 'hazardous' || severity === 'very-unhealthy' ? 'destructive' : 'default',
       });
 
       return data;
@@ -56,7 +57,7 @@ export const useRoutePM25 = () => {
       console.error('Error analyzing routes:', error);
       toast({
         title: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถวิเคราะห์เส้นทางได้ กรุณาลองใหม่อีกครั้ง',
+        description: error.message || 'ไม่สามารถวิเคราะห์เส้นทางได้',
         variant: 'destructive',
       });
       return null;

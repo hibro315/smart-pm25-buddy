@@ -5,30 +5,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Navigation, Loader2, CheckCircle2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { MapPin, Navigation, Loader2, CheckCircle2, Wind, AlertTriangle, Clock } from 'lucide-react';
 import { useRoutePM25, RouteWithPM25 } from '@/hooks/useRoutePM25';
+import { useHealthProfile } from '@/hooks/useHealthProfile';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
-
-
 
 export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; currentLng: number }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [destination, setDestination] = useState('');
-  const [destLat, setDestLat] = useState<number | null>(null);
-  const [destLng, setDestLng] = useState<number | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [pm25Markers, setPm25Markers] = useState<mapboxgl.Marker[]>([]);
   const { routes, recommendedRoute, loading, analyzeRoutes } = useRoutePM25();
+  const { profile } = useHealthProfile();
+
+  // Check if user has respiratory conditions
+  const hasRespiratoryCondition = profile?.chronicConditions?.some(
+    (c: string) => ['asthma', 'copd', 'allergy', 'sinusitis'].includes(c.toLowerCase())
+  ) || profile?.dustSensitivity === 'high';
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
     const initMap = async () => {
       try {
-        // Fetch Mapbox token from edge function
         const { data: tokenData, error } = await supabase.functions.invoke('get-mapbox-token');
         
         if (error || !tokenData?.token) {
@@ -47,7 +50,6 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Add current location marker
         new mapboxgl.Marker({ color: '#3b82f6' })
           .setLngLat([currentLng, currentLat])
           .setPopup(new mapboxgl.Popup().setHTML('<p>ตำแหน่งปัจจุบัน</p>'))
@@ -75,18 +77,21 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
       }
     });
 
-    // Clear PM2.5 markers
     pm25Markers.forEach(marker => marker.remove());
     setPm25Markers([]);
 
     const selectedRoute = routes[selectedRouteIndex];
     const newMarkers: mapboxgl.Marker[] = [];
 
-    // Add all routes to map
+    // Add all routes to map with color based on severity
     routes.forEach((route, index) => {
       const isSelected = index === selectedRouteIndex;
-      const color = route.averagePM25 > 50 ? '#ef4444' : 
-                    route.averagePM25 > 37 ? '#f59e0b' : '#10b981';
+      const severity = (route as any).alertSeverity || 'moderate';
+      
+      let color = '#22c55e'; // green
+      if (severity === 'moderate') color = '#eab308';
+      if (severity === 'unhealthy') color = '#f97316';
+      if (severity === 'very-unhealthy' || severity === 'hazardous') color = '#ef4444';
       
       map.current!.addSource(`route-${index}`, {
         type: 'geojson',
@@ -107,7 +112,7 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
         },
         paint: {
           'line-color': isSelected ? color : '#94a3b8',
-          'line-width': isSelected ? 5 : 3,
+          'line-width': isSelected ? 6 : 3,
           'line-opacity': isSelected ? 1 : 0.4,
         },
       });
@@ -118,23 +123,19 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
       selectedRoute.sampleLocations.forEach((location, index) => {
         const pm25Value = selectedRoute.pm25Samples[index];
         if (pm25Value !== undefined) {
-          const color = pm25Value > 50 ? '#ef4444' : 
-                       pm25Value > 37 ? '#f59e0b' : '#10b981';
+          let bgColor = '#22c55e';
+          if (pm25Value > 25) bgColor = '#eab308';
+          if (pm25Value > 50) bgColor = '#f97316';
+          if (pm25Value > 100) bgColor = '#ef4444';
           
           const el = document.createElement('div');
-          el.className = 'pm25-marker';
           el.style.cssText = `
-            background-color: ${color};
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 2px solid white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
+            background-color: ${bgColor};
             color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
           `;
           el.textContent = pm25Value.toString();
@@ -143,7 +144,7 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
             .setLngLat(location as [number, number])
             .setPopup(
               new mapboxgl.Popup({ offset: 25 })
-                .setHTML(`<p>PM2.5: ${pm25Value} µg/m³</p>`)
+                .setHTML(`<p><strong>PM2.5:</strong> ${pm25Value} µg/m³</p>`)
             )
             .addTo(map.current!);
           
@@ -162,7 +163,7 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
         .addTo(map.current!);
       newMarkers.push(destMarker);
 
-      // Fit bounds to show entire route
+      // Fit bounds
       const bounds = new mapboxgl.LngLatBounds();
       selectedRoute.geometry.coordinates.forEach((coord: number[]) => {
         bounds.extend(coord as [number, number]);
@@ -174,42 +175,48 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
   const handleSearchDestination = async () => {
     if (!destination) return;
 
-    try {
-      // Call edge function with destination string - it will handle geocoding
-      await analyzeRoutes({
-        startLat: currentLat,
-        startLng: currentLng,
-        destination: destination,
-      });
-      
-      // Reset to recommended route (index 0)
-      setSelectedRouteIndex(0);
-    } catch (error) {
-      console.error('Error searching destination:', error);
+    await analyzeRoutes({
+      startLat: currentLat,
+      startLng: currentLng,
+      destination: destination,
+      hasRespiratoryCondition,
+      chronicConditions: profile?.chronicConditions || [],
+    });
+    
+    setSelectedRouteIndex(0);
+  };
+
+  const getSeverityBadge = (severity: string) => {
+    switch (severity) {
+      case 'good': return <Badge className="bg-green-500">ปลอดภัย</Badge>;
+      case 'moderate': return <Badge className="bg-yellow-500">ปานกลาง</Badge>;
+      case 'unhealthy': return <Badge className="bg-orange-500">ไม่ดี</Badge>;
+      case 'very-unhealthy': return <Badge className="bg-red-500">แย่มาก</Badge>;
+      case 'hazardous': return <Badge className="bg-purple-500">อันตราย</Badge>;
+      default: return <Badge variant="outline">-</Badge>;
     }
   };
 
-  const getPM25Variant = (pm25: number): "default" | "destructive" | "outline" | "secondary" => {
-    if (pm25 > 50) return 'destructive';
-    if (pm25 > 37) return 'secondary';
-    return 'default';
-  };
-
-  const getPM25Label = (pm25: number) => {
-    if (pm25 > 50) return 'สูง';
-    if (pm25 > 37) return 'ปานกลาง';
-    return 'ดี';
+  const selectedRoute = routes[selectedRouteIndex] as RouteWithPM25 & { 
+    alertSeverity?: string; 
+    recommendations?: string[] 
   };
 
   return (
-    <Card>
+    <Card className="shadow-card">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Navigation className="h-5 w-5 text-primary" />
-          <CardTitle>นำทางหลีกเลี่ยง PM2.5</CardTitle>
+          <CardTitle>เส้นทางฝุ่นต่ำ Real-time</CardTitle>
         </div>
-        <CardDescription>
-          ค้นหาเส้นทางที่มีค่า PM2.5 ต่ำที่สุด
+        <CardDescription className="flex items-center gap-2">
+          ค้นหาเส้นทางที่มีค่า PM2.5 ต่ำที่สุดจาก AQICN
+          {hasRespiratoryCondition && (
+            <Badge variant="destructive" className="text-xs">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              ผู้ป่วยระบบหายใจ
+            </Badge>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -233,15 +240,42 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
           </div>
         </div>
 
-        <div ref={mapContainer} className="h-[400px] rounded-lg" />
+        <div ref={mapContainer} className="h-[350px] rounded-lg" />
 
         {routes.length > 0 && (
           <div className="space-y-4">
+            {/* Health Alert for Selected Route */}
+            {selectedRoute && (
+              <Alert className={
+                selectedRoute.alertSeverity === 'good' ? 'border-green-500 bg-green-50' :
+                selectedRoute.alertSeverity === 'hazardous' || selectedRoute.alertSeverity === 'very-unhealthy' 
+                  ? 'border-red-500 bg-red-50' : ''
+              }>
+                <Wind className="h-4 w-4" />
+                <AlertTitle>{selectedRoute.healthAlert}</AlertTitle>
+                {selectedRoute.recommendations && selectedRoute.recommendations.length > 0 && (
+                  <AlertDescription>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {selectedRoute.recommendations.map((rec: string, i: number) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                )}
+              </Alert>
+            )}
+
+            {/* Route Options */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">เลือกเส้นทาง ({routes.length} เส้นทาง)</Label>
-              <RadioGroup value={selectedRouteIndex.toString()} onValueChange={(val) => setSelectedRouteIndex(parseInt(val))}>
+              <RadioGroup 
+                value={selectedRouteIndex.toString()} 
+                onValueChange={(val) => setSelectedRouteIndex(parseInt(val))}
+              >
                 {routes.map((route, index) => {
-                  const isRecommended = index === 0;
+                  const isRecommended = route.routeIndex === recommendedRoute?.routeIndex;
+                  const routeData = route as RouteWithPM25 & { alertSeverity?: string };
+                  
                   return (
                     <div 
                       key={index}
@@ -258,52 +292,33 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
                           <Label htmlFor={`route-${index}`} className="flex items-center gap-2 cursor-pointer">
                             <span className="font-medium">เส้นทางที่ {index + 1}</span>
                             {isRecommended && (
-                              <Badge variant="default" className="text-xs">
+                              <Badge className="bg-green-500 text-xs">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                 แนะนำ
                               </Badge>
                             )}
                           </Label>
-                          <Badge variant={getPM25Variant(route.averagePM25)}>
-                            {getPM25Label(route.averagePM25)}
-                          </Badge>
+                          {getSeverityBadge(routeData.alertSeverity || 'moderate')}
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">ระยะทาง:</span>
-                            <span className="font-medium">{(route.distance / 1000).toFixed(1)} km</span>
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span>{route.distance} กม.</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">เวลา:</span>
-                            <span className="font-medium">{Math.round(route.duration / 60)} นาที</span>
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span>{route.duration} นาที</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">PM2.5 เฉลี่ย:</span>
-                            <span className={`font-medium ${
-                              route.averagePM25 > 50 ? 'text-destructive' : 
-                              route.averagePM25 > 37 ? 'text-orange-500' : 'text-green-500'
-                            }`}>
-                              {route.averagePM25} µg/m³
-                            </span>
+                            <Wind className="h-3 w-3 text-muted-foreground" />
+                            <span>เฉลี่ย {route.averagePM25} µg/m³</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">PM2.5 สูงสุด:</span>
-                            <span className="font-medium">{route.maxPM25} µg/m³</span>
+                            <AlertTriangle className="h-3 w-3 text-muted-foreground" />
+                            <span>สูงสุด {route.maxPM25} µg/m³</span>
                           </div>
                         </div>
-
-                        <div className={`text-xs font-medium ${
-                          route.averagePM25 > 50 ? 'text-destructive' : 'text-green-600'
-                        }`}>
-                          {route.healthAlert}
-                        </div>
-
-                        {isRecommended && (
-                          <div className="text-xs text-muted-foreground">
-                            เส้นทางที่ปลอดภัยที่สุดสำหรับสุขภาพ
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
@@ -311,18 +326,17 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
               </RadioGroup>
             </div>
 
-            <div className="p-3 bg-muted/50 rounded-lg">
-                <div className="text-xs space-y-1">
-                <div className="font-medium">ข้อมูลแบบ Real-time ทุก 1 กิโลเมตร</div>
-                <div className="text-muted-foreground">
-                  • ตรวจวัดค่า PM2.5 ทุก 1 กิโลเมตรตลอดเส้นทางจาก Open-Meteo API
-                </div>
-                <div className="text-muted-foreground">
-                  • จุดสีบนแผนที่แสดงค่า PM2.5 แบบ real-time ตามจุดต่างๆ
-                </div>
-                <div className="text-muted-foreground">
-                  • เส้นทางแนะนำเลือกจากค่า PM2.5 เฉลี่ยต่ำสุด
-                </div>
+            {/* Data Source Info */}
+            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+              <div className="font-medium flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                ข้อมูล PM2.5 Real-time จาก AQICN
+              </div>
+              <div className="text-muted-foreground">
+                • วัดค่าทุก 2 กิโลเมตรตลอดเส้นทาง
+              </div>
+              <div className="text-muted-foreground">
+                • คำแนะนำปรับตามข้อมูลสุขภาพของคุณ
               </div>
             </div>
           </div>
