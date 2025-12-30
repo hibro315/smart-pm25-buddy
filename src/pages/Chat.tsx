@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { ChatGPTStyleChatbot } from "@/components/ChatGPTStyleChatbot";
+import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
 import { SatelliteWeatherCard } from "@/components/SatelliteWeatherCard";
 import { ConversationHistory } from "@/components/ConversationHistory";
 import { ChatLoadingSkeleton } from "@/components/ChatLoadingSkeleton";
 import { UserMenu } from "@/components/UserMenu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { MessageSquare, History, TrendingUp, Satellite } from "lucide-react";
+import { MessageSquare, History, Satellite } from "lucide-react";
 
 interface CachedAirQuality {
   pm25: number;
@@ -75,7 +74,7 @@ const Chat = () => {
             {isLoading ? (
               <ChatLoadingSkeleton />
             ) : (
-              <ChatGPTStyleChatbot 
+              <HealthChatbotEnhanced 
                 pm25={airQuality?.pm25}
                 aqi={airQuality?.aqi}
                 temperature={airQuality?.temperature}
