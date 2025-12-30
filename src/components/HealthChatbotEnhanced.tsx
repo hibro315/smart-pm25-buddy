@@ -1,13 +1,25 @@
-import { useState, useRef, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, Mic, MicOff, Volume2, VolumeX, Bot, User, Stethoscope, Heart, Activity } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { 
+  Send, Mic, MicOff, Volume2, VolumeX, 
+  Sparkles, Settings2, AlertTriangle,
+  Play, Square
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import { AnimatedAvatar } from "@/components/AnimatedAvatar";
+import { thaiTTSService, AvatarState, TTSState } from "@/services/ThaiTTSService";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,21 +40,49 @@ export const HealthChatbotEnhanced = ({
   aqi,
   temperature, 
   humidity,
-  location 
+  location,
 }: HealthChatbotEnhancedProps) => {
   const { profile } = useHealthProfile();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
 
+  // TTS & Avatar State
+  const [avatarState, setAvatarState] = useState<AvatarState>('idle');
+  const [ttsState, setTtsState] = useState<TTSState>('idle');
+  const [isMuted, setIsMuted] = useState(false);
+  const [speechRate, setSpeechRate] = useState(1.0);
+  const [currentHighlight, setCurrentHighlight] = useState<string>("");
+
+  // Initialize TTS service
   useEffect(() => {
-    // Initialize speech recognition
+    thaiTTSService.setCallbacks({
+      onStateChange: setTtsState,
+      onAvatarStateChange: setAvatarState,
+      onProgress: (_, __, text) => setCurrentHighlight(text),
+      onEnd: () => setCurrentHighlight(""),
+      onError: (error) => {
+        console.error('TTS Error:', error);
+        toast({
+          title: "ไม่สามารถเล่นเสียงได้",
+          description: "กรุณาลองใหม่อีกครั้ง",
+          variant: "destructive",
+        });
+      }
+    });
+
+    return () => {
+      thaiTTSService.stop();
+    };
+  }, [toast]);
+
+  // Speech recognition setup
+  useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -50,46 +90,34 @@ export const HealthChatbotEnhanced = ({
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'th-TH';
 
+      recognitionRef.current.onstart = () => {
+        setAvatarState('listening');
+      };
+
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setInput(transcript);
         setIsListening(false);
+        setAvatarState('idle');
       };
 
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionRef.current.onerror = () => {
         setIsListening(false);
-        toast({
-          title: "ข้อผิดพลาด",
-          description: "ไม่สามารถรับฟังเสียงได้ กรุณาลองใหม่",
-          variant: "destructive",
-        });
+        setAvatarState('idle');
       };
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
+        setAvatarState('idle');
       };
     }
 
-    // Add welcome message
-    if (messages.length === 0) {
-      setMessages([{
-        role: "assistant",
-        content: `สวัสดีค่ะ ฉันคือผู้ช่วยด้านสุขภาพที่พร้อมให้คำปรึกษาเกี่ยวกับผลกระทบของมลพิษทางอากาศต่อสุขภาพ\n\n📊 ข้อมูลปัจจุบัน:\n- PM2.5: ${pm25 || 'N/A'} µg/m³\n- AQI: ${aqi || 'N/A'}\n- อุณหภูมิ: ${temperature || 'N/A'}°C\n- ความชื้น: ${humidity || 'N/A'}%\n\nคุณสามารถถามเกี่ยวกับ:\n✅ อาการและผลกระทบต่อสุขภาพ\n✅ การป้องกันและดูแลตนเอง\n✅ คำแนะนำสำหรับผู้ป่วยโรคเรื้อรัง\n✅ การออกกำลังกายในช่วงฝุ่นสูง\n✅ โภชนาการที่เหมาะสม`,
-        timestamp: new Date().toISOString(),
-      }]);
-    }
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      if (recognitionRef.current) recognitionRef.current.stop();
     };
   }, []);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -99,42 +127,49 @@ export const HealthChatbotEnhanced = ({
   const toggleListening = () => {
     if (!recognitionRef.current) {
       toast({
-        title: "ไม่รองรับ",
-        description: "เบราว์เซอร์นี้ไม่รองรับการรับฟังเสียง",
+        title: "ไม่รองรับการฟังเสียง",
+        description: "เบราว์เซอร์ของคุณไม่รองรับการรับรู้เสียง",
         variant: "destructive",
       });
       return;
     }
-
+    
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
+      setAvatarState('idle');
     } else {
+      thaiTTSService.stop(); // Stop any ongoing speech
       recognitionRef.current.start();
       setIsListening(true);
+      setAvatarState('listening');
     }
   };
 
-  const speak = (text: string) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'th-TH';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    thaiTTSService.setMuted(newMuted);
+    if (newMuted) {
+      setAvatarState('idle');
+    }
   };
+
+  const handleSpeechRateChange = (value: number[]) => {
+    const rate = value[0];
+    setSpeechRate(rate);
+    thaiTTSService.setRate(rate);
+  };
+
+  const speakText = useCallback(async (text: string) => {
+    if (isMuted) return;
+    setAvatarState('thinking');
+    await thaiTTSService.speak(text);
+  }, [isMuted]);
 
   const stopSpeaking = () => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
+    thaiTTSService.stop();
+    setAvatarState('idle');
   };
 
   const sendMessage = async () => {
@@ -148,30 +183,26 @@ export const HealthChatbotEnhanced = ({
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+    setAvatarState('thinking');
 
     let assistantContent = "";
 
     try {
-      // Refresh session to ensure fresh token
-      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.refreshSession();
       
-      if (refreshError || !session?.access_token) {
+      if (!session?.access_token) {
         toast({
           title: "กรุณาเข้าสู่ระบบใหม่",
-          description: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง",
           variant: "destructive",
         });
         setIsLoading(false);
+        setAvatarState('idle');
         window.location.href = '/auth';
         return;
       }
 
-      console.log("✅ Session refreshed successfully");
+      const contextInfo = profile ? `\n\nข้อมูลสุขภาพ: อายุ ${profile.age} ปี, ${profile.gender}, โรคประจำตัว: ${profile.chronicConditions.length > 0 ? profile.chronicConditions.join(', ') : 'ไม่มี'}` : '';
 
-      // Include user health profile in context
-      const contextInfo = profile ? `\n\nข้อมูลสุขภาพผู้ใช้:\n- อายุ: ${profile.age} ปี\n- เพศ: ${profile.gender}\n- โรคประจำตัว: ${profile.chronicConditions.length > 0 ? profile.chronicConditions.join(', ') : 'ไม่มี'}\n- ความไวต่อฝุ่น: ${profile.dustSensitivity}\n- กิจกรรมทางกาย: ${profile.physicalActivity}` : '';
-
-      // Use Supabase SDK for proper authentication handling
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/health-chat`,
         {
@@ -193,48 +224,20 @@ export const HealthChatbotEnhanced = ({
             temperature,
             humidity,
             location,
+            analyzePHRI: true,
           }),
         }
       );
 
-      console.log("📡 Response status:", response.status);
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error("❌ API Error:", response.status, errorData);
-        
-        if (response.status === 401) {
-          toast({
-            title: "กรุณาเข้าสู่ระบบใหม่",
-            description: errorData.error || "เซสชันของคุณหมดอายุแล้ว",
-            variant: "destructive",
-          });
-          setTimeout(() => {
-            window.location.href = '/auth';
-          }, 2000);
-          setIsLoading(false);
-          return;
-        }
-        if (response.status === 429) {
-          toast({
-            title: "ใช้งานเกินกำหนด",
-            description: "กรุณาลองใหม่อีกครั้งภายหลัง",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error("No response body");
-      }
+      if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
-      let streamDone = false;
 
       const updateAssistantMessage = (content: string) => {
         setMessages(prev => {
@@ -242,15 +245,11 @@ export const HealthChatbotEnhanced = ({
           if (last?.role === "assistant") {
             return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content } : m));
           }
-          return [...prev, { 
-            role: "assistant", 
-            content,
-            timestamp: new Date().toISOString(),
-          }];
+          return [...prev, { role: "assistant", content, timestamp: new Date().toISOString() }];
         });
       };
 
-      while (!streamDone) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         
@@ -266,10 +265,7 @@ export const HealthChatbotEnhanced = ({
           if (!line.startsWith("data: ")) continue;
 
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
+          if (jsonStr === "[DONE]") break;
 
           try {
             const parsed = JSON.parse(jsonStr);
@@ -285,177 +281,298 @@ export const HealthChatbotEnhanced = ({
         }
       }
 
-      // Speak the response
-      if (assistantContent) {
-        speak(assistantContent);
+      // Speak the response after streaming
+      if (assistantContent && !isMuted) {
+        await speakText(assistantContent);
       }
     } catch (error) {
       console.error("Chat error:", error);
+      setAvatarState('warning');
       toast({
         title: "ข้อผิดพลาด",
-        description: "ไม่สามารถส่งข้อความได้ กรุณาลองใหม่",
+        description: "ไม่สามารถส่งข้อความได้",
         variant: "destructive",
       });
+      setTimeout(() => setAvatarState('idle'), 2000);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getPM25Status = () => {
-    if (!pm25) return { text: "ไม่ทราบ", color: "bg-gray-500" };
-    if (pm25 > 75) return { text: "อันตราย", color: "bg-red-500" };
-    if (pm25 > 37) return { text: "ไม่ดี", color: "bg-orange-500" };
-    if (pm25 > 12) return { text: "ปานกลาง", color: "bg-yellow-500" };
-    return { text: "ดี", color: "bg-green-500" };
+  // Get AQI risk level
+  const getAqiRisk = () => {
+    if (!aqi) return { level: 'unknown', color: 'bg-muted' };
+    if (aqi <= 50) return { level: 'ดี', color: 'bg-green-500' };
+    if (aqi <= 100) return { level: 'ปานกลาง', color: 'bg-yellow-500' };
+    if (aqi <= 150) return { level: 'ไม่ดีต่อกลุ่มเสี่ยง', color: 'bg-orange-500' };
+    if (aqi <= 200) return { level: 'ไม่ดี', color: 'bg-red-500' };
+    return { level: 'อันตราย', color: 'bg-purple-500' };
   };
 
-  const pm25Status = getPM25Status();
+  const aqiRisk = getAqiRisk();
+
+  const suggestedPrompts = [
+    "วันนี้ควรออกกำลังกายไหม?",
+    "อาการไอ คัดจมูก ควรทำอย่างไร?",
+    "แนะนำเส้นทางที่ปลอดภัย",
+  ];
 
   return (
-    <Card className="flex flex-col h-[600px] bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="p-4 border-b bg-background/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Stethoscope className="h-6 w-6 text-primary" />
-              <Heart className="h-3 w-3 text-destructive absolute -top-1 -right-1 animate-pulse" />
-            </div>
+    <div className="flex flex-col h-[75vh] max-h-[650px] bg-background rounded-xl border shadow-lg overflow-hidden">
+      {/* Header with Avatar */}
+      <div className="px-4 py-3 border-b bg-gradient-to-r from-primary/10 to-blue-500/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AnimatedAvatar state={avatarState} size="sm" />
             <div>
-              <h3 className="font-semibold">ที่ปรึกษาสุขภาพ AI</h3>
-              <p className="text-xs text-muted-foreground">ผู้เชี่ยวชาญด้านสุขภาพและมลพิษ</p>
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Smart PM2.5 Buddy
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {ttsState === 'speaking' ? 'กำลังพูด...' : 
+                 isListening ? 'กำลังฟัง...' : 
+                 isLoading ? 'กำลังคิด...' : 'พร้อมช่วยเหลือ'}
+              </p>
             </div>
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2">
+            {/* AQI Badge */}
+            <Badge 
+              variant="outline" 
+              className={cn("text-xs gap-1", aqi && aqi > 100 && "border-orange-500 text-orange-600")}
+            >
+              {aqi && aqi > 100 && <AlertTriangle className="h-3 w-3" />}
+              AQI: {aqi || '-'}
+            </Badge>
+
+            {/* TTS Controls */}
             <Button
               size="icon"
               variant="ghost"
-              onClick={isSpeaking ? stopSpeaking : undefined}
-              disabled={!isSpeaking}
+              className="h-8 w-8"
+              onClick={ttsState === 'speaking' ? stopSpeaking : toggleMute}
             >
-              {isSpeaking ? (
-                <VolumeX className="h-4 w-4 text-destructive animate-pulse" />
+              {ttsState === 'speaking' ? (
+                <Square className="h-4 w-4 text-red-500" />
+              ) : isMuted ? (
+                <VolumeX className="h-4 w-4" />
               ) : (
                 <Volume2 className="h-4 w-4" />
               )}
             </Button>
+
+            {/* Settings Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">การตั้งค่าเสียง</h4>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-muted-foreground">ความเร็วเสียง</label>
+                      <span className="text-xs font-mono">{speechRate.toFixed(1)}x</span>
+                    </div>
+                    <Slider
+                      value={[speechRate]}
+                      onValueChange={handleSpeechRateChange}
+                      min={0.5}
+                      max={2.0}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>ช้า</span>
+                      <span>ปกติ</span>
+                      <span>เร็ว</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs">ปิดเสียง</label>
+                    <Button 
+                      size="sm" 
+                      variant={isMuted ? "destructive" : "outline"}
+                      onClick={toggleMute}
+                      className="h-7"
+                    >
+                      {isMuted ? "เปิดเสียง" : "ปิดเสียง"}
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
-        {/* Environmental Status Bar */}
-        <div className="grid grid-cols-4 gap-2 mt-2">
-          <Badge className={`${pm25Status.color} text-white text-xs justify-center`}>
-            PM2.5: {pm25 || 'N/A'}
-          </Badge>
-          <Badge variant="outline" className="text-xs justify-center">
-            AQI: {aqi || 'N/A'}
-          </Badge>
-          <Badge variant="outline" className="text-xs justify-center">
-            {temperature || 'N/A'}°C
-          </Badge>
-          <Badge variant="outline" className="text-xs justify-center">
-            {humidity || 'N/A'}% RH
-          </Badge>
-        </div>
+        {/* Current highlight transcript */}
+        {currentHighlight && (
+          <div className="mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
+            <p className="text-xs text-primary font-medium animate-pulse">
+              🔊 {currentHighlight}
+            </p>
+          </div>
+        )}
       </div>
 
+      {/* Messages Area */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex gap-2 ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              {message.role === "assistant" && (
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-                    <Activity className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                </div>
-              )}
-              <div className="max-w-[80%]">
-                <div
-                  className={`rounded-2xl px-4 py-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-tr-none"
-                      : "bg-muted rounded-tl-none"
-                  }`}
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center py-8">
+            <div className="mb-4">
+              <AnimatedAvatar state="idle" size="lg" />
+            </div>
+            <h3 className="text-sm font-medium mb-2">สวัสดีค่ะ ยินดีให้บริการ</h3>
+            <p className="text-xs text-muted-foreground mb-4 max-w-xs">
+              ถามเกี่ยวกับสุขภาพ มลพิษอากาศ หรือคำแนะนำในการดูแลตัวเอง
+            </p>
+            
+            {/* Environment Info */}
+            <div className="flex flex-wrap gap-2 justify-center mb-4">
+              <Badge variant="secondary" className="text-xs">
+                PM2.5: {pm25 || '-'} µg/m³
+              </Badge>
+              <Badge variant="secondary" className={cn("text-xs text-white", aqiRisk.color)}>
+                AQI: {aqi || '-'} ({aqiRisk.level})
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                🌡️ {temperature || '-'}°C
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap gap-2 justify-center">
+              {suggestedPrompts.map((prompt, i) => (
+                <Button
+                  key={i}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setInput(prompt)}
                 >
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                </div>
-                {message.timestamp && (
-                  <p className="text-xs text-muted-foreground mt-1 px-2">
-                    {new Date(message.timestamp).toLocaleTimeString('th-TH', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </p>
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "flex gap-3",
+                  message.role === "user" ? "justify-end" : "justify-start"
                 )}
-              </div>
-              {message.role === "user" && (
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-secondary/70 flex items-center justify-center shadow-lg">
-                    <User className="h-4 w-4 text-secondary-foreground" />
+              >
+                {message.role === "assistant" && (
+                  <div className="flex-shrink-0 mt-1">
+                    <AnimatedAvatar 
+                      state={index === messages.length - 1 && ttsState === 'speaking' ? 'speaking' : 'idle'} 
+                      size="sm" 
+                    />
+                  </div>
+                )}
+                <div className="max-w-[85%] space-y-1">
+                  <div
+                    className={cn(
+                      "rounded-2xl px-3 py-2 text-sm",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : "bg-muted rounded-tl-sm"
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 px-1">
+                    {message.timestamp && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(message.timestamp).toLocaleTimeString('th-TH', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    )}
+                    {message.role === "assistant" && !isMuted && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-5 w-5"
+                        onClick={() => speakText(message.content)}
+                      >
+                        <Play className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex gap-2 justify-start">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-                  <Activity className="h-4 w-4 text-primary-foreground" />
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex gap-3 justify-start">
+                <AnimatedAvatar state="thinking" size="sm" />
+                <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-muted">
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
                 </div>
               </div>
-              <div className="rounded-2xl rounded-tl-none px-4 py-3 bg-muted">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-2 h-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-2 h-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </ScrollArea>
 
-      <div className="p-4 border-t bg-background/50 backdrop-blur-sm">
-        <div className="flex gap-2 mb-2">
+      {/* Input Area */}
+      <div className="p-3 border-t bg-background/80 backdrop-blur">
+        <div className="flex gap-2">
           <Button
             size="icon"
             variant={isListening ? "destructive" : "outline"}
+            className={cn(
+              "h-10 w-10 flex-shrink-0 transition-all",
+              isListening && "animate-pulse ring-2 ring-red-500/50"
+            )}
             onClick={toggleListening}
             disabled={isLoading}
-            className="shadow-sm"
           >
-            {isListening ? (
-              <MicOff className="h-4 w-4 animate-pulse" />
-            ) : (
-              <Mic className="h-4 w-4" />
-            )}
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder={isListening ? "กำลังฟัง..." : "ถามเกี่ยวกับสุขภาพและมลพิษ..."}
+            placeholder={isListening ? "กำลังฟัง..." : "พิมพ์ข้อความ..."}
             disabled={isLoading || isListening}
-            className="flex-1 shadow-sm"
+            className="flex-1 h-10"
           />
           <Button 
+            size="icon"
+            className="h-10 w-10 flex-shrink-0"
             onClick={sendMessage} 
             disabled={!input.trim() || isLoading}
-            className="shadow-sm"
           >
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground text-center">
-          💡 ลองถามเช่น "PM2.5 สูงมีผลกระทบต่อสุขภาพอย่างไร" หรือ "ผู้ป่วยหอบหืดควรดูแลตัวเองอย่างไร"
+        
+        {/* Privacy Notice */}
+        <p className="text-[10px] text-muted-foreground text-center mt-2">
+          ข้อความอาจถูกส่งไปยัง AI เพื่อประมวลผล • 
+          <button className="underline ml-1" onClick={toggleMute}>
+            {isMuted ? "เปิดเสียง" : "โหมดข้อความอย่างเดียว"}
+          </button>
         </p>
       </div>
-    </Card>
+    </div>
   );
 };
+
+export default HealthChatbotEnhanced;
