@@ -1,6 +1,6 @@
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PHRIDisplay } from "@/components/PHRIDisplay";
+import { EnhancedPHRIPanel } from "@/components/EnhancedPHRIPanel";
+import { DashboardActionButtons } from "@/components/DashboardActionButtons";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
@@ -8,7 +8,6 @@ import { WeeklyHealthSummary } from "@/components/WeeklyHealthSummary";
 import { HealthTrendAnalysis } from "@/components/HealthTrendAnalysis";
 import { HealthCorrelationChart } from "@/components/HealthCorrelationChart";
 import { EnhancedSymptomLog } from "@/components/EnhancedSymptomLog";
-import { HealthProfileDisplay } from "@/components/HealthProfileDisplay";
 import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileForm";
 import { UserMenu } from "@/components/UserMenu";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
@@ -110,8 +109,21 @@ const Dashboard = () => {
       </div>
 
       <div className="container mx-auto px-6 py-6 space-y-6">
-        {/* Quick PHRI Display */}
-        <PHRIDisplay result={phriResult} />
+        {/* Enhanced PHRI Panel with animated counter and breakdown */}
+        <EnhancedPHRIPanel 
+          result={phriResult} 
+          pm25={data?.pm25}
+          aqi={data?.aqi}
+        />
+
+        {/* DORA Action Buttons */}
+        <DashboardActionButtons 
+          riskLevel={
+            phriResult?.phri < 2.5 ? 'low' : 
+            phriResult?.phri < 5 ? 'moderate' : 
+            phriResult?.phri < 7.5 ? 'high' : 'severe'
+          } 
+        />
 
         {/* Enhanced Symptom Log */}
         <EnhancedSymptomLog />
