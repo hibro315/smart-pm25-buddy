@@ -158,35 +158,28 @@ export const EnhancedPHRIPanel = ({ result, pm25, aqi, className }: EnhancedPHRI
             </p>
           </div>
 
-          {/* Risk Level Scale */}
-          <div className="grid grid-cols-4 gap-2 text-xs text-center pt-2 border-t">
+          {/* Risk Level Scale - PHRI 0-10: <3 Low, 3-6 Warning, >6 Danger */}
+          <div className="grid grid-cols-3 gap-2 text-xs text-center pt-2 border-t">
             <div className={cn(
               "p-2 rounded transition-all duration-300",
               category === 'low' && "ring-2 ring-success ring-offset-2"
             )}>
-              <div className="font-semibold text-success">&lt; 25</div>
-              <div className="text-muted-foreground">ต่ำ</div>
+              <div className="font-semibold text-success">&lt; 3</div>
+              <div className="text-muted-foreground">ปลอดภัย</div>
             </div>
             <div className={cn(
               "p-2 rounded transition-all duration-300",
-              category === 'moderate' && "ring-2 ring-warning ring-offset-2"
+              category === 'warning' && "ring-2 ring-warning ring-offset-2"
             )}>
-              <div className="font-semibold text-warning">25-50</div>
-              <div className="text-muted-foreground">ปานกลาง</div>
+              <div className="font-semibold text-warning">3-6</div>
+              <div className="text-muted-foreground">เตือน</div>
             </div>
             <div className={cn(
               "p-2 rounded transition-all duration-300",
-              category === 'high' && "ring-2 ring-destructive ring-offset-2"
+              category === 'danger' && "ring-2 ring-destructive ring-offset-2"
             )}>
-              <div className="font-semibold text-destructive">50-75</div>
-              <div className="text-muted-foreground">สูง</div>
-            </div>
-            <div className={cn(
-              "p-2 rounded transition-all duration-300",
-              category === 'severe' && "ring-2 ring-destructive ring-offset-2"
-            )}>
-              <div className="font-semibold text-destructive">&gt; 75</div>
-              <div className="text-muted-foreground">รุนแรง</div>
+              <div className="font-semibold text-destructive">&gt; 6</div>
+              <div className="text-muted-foreground">อันตราย</div>
             </div>
           </div>
         </CardContent>
