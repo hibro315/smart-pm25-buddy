@@ -117,28 +117,26 @@ export const useDominantFactor = (breakdown: Record<string, number>) => {
 };
 
 /**
- * Hook for color interpolation based on PHRI score
+ * Hook for color interpolation based on PHRI score (0-10 scale)
+ * Thresholds: < 3 = Low, 3-6 = Warning, > 6 = Dangerous
  */
 export const usePHRIColor = (score: number) => {
   const getColor = useCallback((value: number): string => {
-    if (value < 25) return 'hsl(var(--success))';
-    if (value < 50) return 'hsl(var(--warning))';
-    if (value < 75) return 'hsl(var(--aqi-unhealthy))';
+    if (value < 3) return 'hsl(var(--success))';
+    if (value <= 6) return 'hsl(var(--warning))';
     return 'hsl(var(--destructive))';
   }, []);
 
   const getCategory = useCallback((value: number): string => {
-    if (value < 25) return 'low';
-    if (value < 50) return 'moderate';
-    if (value < 75) return 'high';
-    return 'severe';
+    if (value < 3) return 'low';
+    if (value <= 6) return 'warning';
+    return 'danger';
   }, []);
 
   const getCategoryLabel = useCallback((value: number): string => {
-    if (value < 25) return 'ต่ำ';
-    if (value < 50) return 'ปานกลาง';
-    if (value < 75) return 'สูง';
-    return 'รุนแรง';
+    if (value < 3) return 'ปลอดภัย';
+    if (value <= 6) return 'เตือน';
+    return 'อันตราย';
   }, []);
 
   return {
