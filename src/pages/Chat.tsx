@@ -5,6 +5,7 @@ import { ConversationHistory } from "@/components/ConversationHistory";
 import { ChatLoadingSkeleton } from "@/components/ChatLoadingSkeleton";
 import VoiceHealthChatNew from "@/components/VoiceHealthChatNew";
 import { UserMenu } from "@/components/UserMenu";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, History, Satellite, Mic, Brain, Sparkles } from "lucide-react";
@@ -25,6 +26,7 @@ const Chat = () => {
   const [airQuality, setAirQuality] = useState<CachedAirQuality | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadCachedData = () => {
@@ -68,8 +70,8 @@ const Chat = () => {
               </div>
             </div>
             <div>
-              <h1 className="text-lg font-display font-bold text-gradient-primary">Health AI</h1>
-              <p className="text-[10px] text-muted-foreground">ผู้ช่วยสุขภาพอัจฉริยะ</p>
+              <h1 className="text-lg font-display font-bold text-gradient-primary">{t('chat.title')}</h1>
+              <p className="text-[10px] text-muted-foreground">{t('chat.subtitle')}</p>
             </div>
           </motion.div>
           <UserMenu />
@@ -84,28 +86,28 @@ const Chat = () => {
               className="flex items-center gap-1.5 text-xs rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/10 data-[state=active]:to-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-soft transition-all duration-300"
             >
               <MessageSquare className="w-4 h-4" />
-              <span>แชท</span>
+              <span>{t('chat.tab.chat')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="voice" 
               className="flex items-center gap-1.5 text-xs rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/10 data-[state=active]:to-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-soft transition-all duration-300"
             >
               <Mic className="w-4 h-4" />
-              <span>Voice AI</span>
+              <span>{t('chat.tab.voice')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="weather" 
               className="flex items-center gap-1.5 text-xs rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/10 data-[state=active]:to-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-soft transition-all duration-300"
             >
               <Satellite className="w-4 h-4" />
-              <span>อากาศ</span>
+              <span>{t('chat.tab.weather')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
               className="flex items-center gap-1.5 text-xs rounded-xl data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/10 data-[state=active]:to-accent/10 data-[state=active]:text-primary data-[state=active]:shadow-soft transition-all duration-300"
             >
               <History className="w-4 h-4" />
-              <span>ประวัติ</span>
+              <span>{t('chat.tab.history')}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -159,10 +161,10 @@ const Chat = () => {
                 <div className="space-y-2">
                   <h2 className="text-2xl font-display font-bold text-gradient-primary flex items-center justify-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    Voice Health AI
+                    {t('chat.voice.title')}
                   </h2>
                   <p className="text-muted-foreground text-sm max-w-xs mx-auto leading-relaxed">
-                    พูดคุยกับผู้เชี่ยวชาญ AI ด้านสุขภาพ ถามเกี่ยวกับคุณภาพอากาศและการดูแลตัวเองได้ทันที
+                    {t('chat.voice.desc')}
                   </p>
                 </div>
               </div>
@@ -174,7 +176,7 @@ const Chat = () => {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer" />
                 <Mic className="w-5 h-5 mr-2" />
-                <span className="font-medium">เริ่มสนทนาด้วยเสียง</span>
+                <span className="font-medium">{t('chat.voice.start')}</span>
               </Button>
 
               <div className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
