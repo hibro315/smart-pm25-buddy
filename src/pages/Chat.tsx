@@ -3,9 +3,10 @@ import { HealthChatbotEnhanced } from "@/components/HealthChatbotEnhanced";
 import { SatelliteWeatherCard } from "@/components/SatelliteWeatherCard";
 import { ConversationHistory } from "@/components/ConversationHistory";
 import { ChatLoadingSkeleton } from "@/components/ChatLoadingSkeleton";
+import { VoiceHealthAgent } from "@/components/VoiceHealthAgent";
 import { UserMenu } from "@/components/UserMenu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, History, Satellite } from "lucide-react";
+import { MessageSquare, History, Satellite, Mic } from "lucide-react";
 
 interface CachedAirQuality {
   pm25: number;
@@ -55,14 +56,18 @@ const Chat = () => {
 
       <div className="container mx-auto px-4 py-4">
         <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-9">
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-9">
             <TabsTrigger value="chat" className="flex items-center gap-1.5 text-xs">
               <MessageSquare className="w-3.5 h-3.5" />
               <span>แชท</span>
             </TabsTrigger>
+            <TabsTrigger value="voice" className="flex items-center gap-1.5 text-xs">
+              <Mic className="w-3.5 h-3.5" />
+              <span>Voice AI</span>
+            </TabsTrigger>
             <TabsTrigger value="weather" className="flex items-center gap-1.5 text-xs">
               <Satellite className="w-3.5 h-3.5" />
-              <span>สภาพอากาศ</span>
+              <span>อากาศ</span>
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-1.5 text-xs">
               <History className="w-3.5 h-3.5" />
@@ -82,6 +87,16 @@ const Chat = () => {
                 location={airQuality?.location}
               />
             )}
+          </TabsContent>
+
+          <TabsContent value="voice" className="mt-0">
+            <VoiceHealthAgent
+              pm25={airQuality?.pm25}
+              aqi={airQuality?.aqi}
+              temperature={airQuality?.temperature}
+              humidity={airQuality?.humidity}
+              location={airQuality?.location}
+            />
           </TabsContent>
 
           <TabsContent value="weather" className="mt-0">
