@@ -59,16 +59,23 @@ export const AQIHeatmapLayer = ({
     loadAQIData();
 
     return () => {
-      // Cleanup heatmap layer
-      if (map.getLayer('aqi-heatmap')) {
-        map.removeLayer('aqi-heatmap');
-      }
-      if (map.getSource('aqi-stations')) {
-        map.removeSource('aqi-stations');
-      }
-      // Cleanup markers
+      // Cleanup markers first
       markersRef.current.forEach(m => m.remove());
       markersRef.current = [];
+      
+      // Only cleanup layers if map still exists and has style
+      try {
+        if (map && map.getStyle()) {
+          if (map.getLayer('aqi-heatmap')) {
+            map.removeLayer('aqi-heatmap');
+          }
+          if (map.getSource('aqi-stations')) {
+            map.removeSource('aqi-stations');
+          }
+        }
+      } catch (e) {
+        // Map may have been removed, ignore cleanup errors
+      }
     };
   }, [map, centerLat, centerLng, enabled]);
 
