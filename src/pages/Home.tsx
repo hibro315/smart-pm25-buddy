@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useComprehensivePHRI } from "@/hooks/useComprehensivePHRI";
-import { VoiceHealthInterface } from "@/components/VoiceHealthInterface";
+import VoiceHealthChatNew from "@/components/VoiceHealthChatNew";
 import { HealthOrb } from "@/components/HealthOrb";
 import { Card } from "@/components/ui/card";
 import { UserMenu } from "@/components/UserMenu";
@@ -53,27 +53,17 @@ const Home = () => {
     }
   }, [data]);
 
-  // If voice mode is active, show full-screen voice interface
-  if (showVoiceMode) {
-    return (
-      <div className="fixed inset-0 z-50">
-        <button
-          onClick={() => setShowVoiceMode(false)}
-          className="absolute top-4 left-4 z-50 glass-card px-4 py-2 text-sm hover-lift"
-        >
-          ← กลับ
-        </button>
-        <VoiceHealthInterface
-          pm25={data?.pm25}
-          aqi={data?.aqi}
-          phri={phriScore}
-          temperature={data?.temperature}
-          humidity={data?.humidity}
-          location={data?.location}
-        />
-      </div>
-    );
-  }
+  // Voice chat modal
+  const voiceChatModal = showVoiceMode && (
+    <VoiceHealthChatNew
+      pm25={data?.pm25}
+      aqi={data?.aqi}
+      temperature={data?.temperature}
+      humidity={data?.humidity}
+      location={data?.location}
+      onClose={() => setShowVoiceMode(false)}
+    />
+  );
 
   const getAirFeeling = (): string => {
     if (pm25 <= 15) return "อากาศสะอาดบริสุทธิ์";
@@ -289,6 +279,9 @@ const Home = () => {
           </div>
         )}
       </div>
+
+      {/* Voice Chat Modal */}
+      {voiceChatModal}
     </div>
   );
 };
