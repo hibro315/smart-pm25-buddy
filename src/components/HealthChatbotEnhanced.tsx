@@ -25,6 +25,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
+  followUpQuestions?: string[];
 }
 
 interface HealthChatbotEnhancedProps {
@@ -48,6 +49,7 @@ export const HealthChatbotEnhanced = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
@@ -269,6 +271,11 @@ export const HealthChatbotEnhanced = ({
 
           try {
             const parsed = JSON.parse(jsonStr);
+            // Check for follow-up questions
+            if (parsed.type === 'follow_up_questions' && parsed.questions) {
+              setFollowUpQuestions(parsed.questions);
+              continue;
+            }
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
@@ -527,6 +534,29 @@ export const HealthChatbotEnhanced = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Follow-up Questions */}
+        {followUpQuestions.length > 0 && !isLoading && messages.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-muted-foreground font-medium">💬 คำถามติดตาม:</p>
+            <div className="flex flex-wrap gap-2">
+              {followUpQuestions.map((q, i) => (
+                <Button
+                  key={i}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left"
+                  onClick={() => {
+                    setInput(q);
+                    setFollowUpQuestions([]);
+                  }}
+                >
+                  {q}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </ScrollArea>
