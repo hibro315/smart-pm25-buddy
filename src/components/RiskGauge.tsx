@@ -1,17 +1,18 @@
 /**
  * Risk Gauge Component
  * 
- * Visual representation of risk score with animated gauge
+ * Visual representation of PHRI score (0-10 scale) with animated gauge
+ * Thresholds: <3 = Safe, 3-6 = Warning, >6 = Dangerous
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Updated for PHRI 0-10 scale
  */
 
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { RISK_CATEGORIES } from '@/config/constants';
+import { PHRI_CATEGORIES } from '@/config/constants';
 
 interface RiskGaugeProps {
-  score: number;
+  score: number; // 0-10 PHRI scale
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   animated?: boolean;
@@ -34,19 +35,18 @@ export const RiskGauge = ({
   const config = sizeConfig[size];
   const radius = (config.width - config.strokeWidth) / 2;
   const circumference = radius * Math.PI; // Semi-circle
-  const offset = circumference - (score / 100) * circumference;
+  // Score is 0-10, so divide by 10 for percentage
+  const offset = circumference - (score / 10) * circumference;
 
   const { category, color, label } = useMemo(() => {
-    if (score <= RISK_CATEGORIES.LOW.max) {
-      return { category: 'LOW', color: 'stroke-success', label: RISK_CATEGORIES.LOW.label };
+    // PHRI 0-10 scale: <3 = Safe, 3-6 = Warning, >6 = Dangerous
+    if (score < 3) {
+      return { category: 'SAFE', color: 'stroke-success', label: PHRI_CATEGORIES.SAFE.label };
     }
-    if (score <= RISK_CATEGORIES.MODERATE.max) {
-      return { category: 'MODERATE', color: 'stroke-warning', label: RISK_CATEGORIES.MODERATE.label };
+    if (score <= 6) {
+      return { category: 'WARNING', color: 'stroke-warning', label: PHRI_CATEGORIES.WARNING.label };
     }
-    if (score <= RISK_CATEGORIES.HIGH.max) {
-      return { category: 'HIGH', color: 'stroke-destructive', label: RISK_CATEGORIES.HIGH.label };
-    }
-    return { category: 'SEVERE', color: 'stroke-destructive', label: RISK_CATEGORIES.SEVERE.label };
+    return { category: 'DANGER', color: 'stroke-destructive', label: PHRI_CATEGORIES.DANGER.label };
   }, [score]);
 
   return (
@@ -84,9 +84,9 @@ export const RiskGauge = ({
             }}
           />
           
-          {/* Gradient markers */}
-          {[0, 25, 50, 75, 100].map((tick, i) => {
-            const angle = (tick / 100) * Math.PI;
+          {/* PHRI 0-10 scale markers */}
+          {[0, 3, 6, 10].map((tick) => {
+            const angle = (tick / 10) * Math.PI;
             const x = config.width / 2 - Math.cos(angle) * (radius + 12);
             const y = config.width / 2 - Math.sin(angle) * (radius + 12);
             return (
@@ -107,7 +107,7 @@ export const RiskGauge = ({
         {/* Score display */}
         <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
           <span className={cn(config.fontSize, 'font-bold', color.replace('stroke-', 'text-'))}>
-            {Math.round(score)}
+            {score.toFixed(1)}
           </span>
           {showLabel && (
             <span className="text-xs text-muted-foreground mt-1">{label}</span>

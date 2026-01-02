@@ -117,11 +117,20 @@ export const DURATION_MODIFIERS = {
 // RISK CATEGORIES
 // ============================================================================
 
+// Risk categories for 0-100 scale (used by RiskEngine)
 export const RISK_CATEGORIES = {
   LOW: { min: 0, max: 25, label: 'ความเสี่ยงต่ำ', labelEn: 'Low Risk', color: 'success' },
   MODERATE: { min: 26, max: 50, label: 'ความเสี่ยงปานกลาง', labelEn: 'Moderate Risk', color: 'warning' },
   HIGH: { min: 51, max: 75, label: 'ความเสี่ยงสูง', labelEn: 'High Risk', color: 'destructive' },
   SEVERE: { min: 76, max: 100, label: 'ความเสี่ยงรุนแรง', labelEn: 'Severe Risk', color: 'destructive' },
+} as const;
+
+// PHRI categories for 0-10 scale (Personal Health Risk Index)
+// <3 = Safe/Low, 3-6 = Warning, >6 = Dangerous
+export const PHRI_CATEGORIES = {
+  SAFE: { min: 0, max: 2.99, label: 'ปลอดภัย', labelEn: 'Safe', color: 'success' },
+  WARNING: { min: 3, max: 6, label: 'เตือน', labelEn: 'Warning', color: 'warning' },
+  DANGER: { min: 6.01, max: 10, label: 'อันตราย', labelEn: 'Dangerous', color: 'destructive' },
 } as const;
 
 // ============================================================================
