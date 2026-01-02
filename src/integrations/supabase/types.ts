@@ -446,6 +446,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_health_memory: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          first_mentioned_at: string | null
+          frequency: number | null
+          id: string
+          key: string
+          last_mentioned_at: string | null
+          memory_type: string
+          metadata: Json | null
+          updated_at: string
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          first_mentioned_at?: string | null
+          frequency?: number | null
+          id?: string
+          key: string
+          last_mentioned_at?: string | null
+          memory_type: string
+          metadata?: Json | null
+          updated_at?: string
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          first_mentioned_at?: string | null
+          frequency?: number | null
+          id?: string
+          key?: string
+          last_mentioned_at?: string | null
+          memory_type?: string
+          metadata?: Json | null
+          updated_at?: string
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       vital_signs: {
         Row: {
           anomalies: string[] | null

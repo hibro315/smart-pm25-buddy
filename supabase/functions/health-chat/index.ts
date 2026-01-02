@@ -6,6 +6,131 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Memory extraction patterns for Thai/English
+const MEMORY_PATTERNS = {
+  medication: [
+    /(?:ใช้|กิน|ทาน|รับประทาน|พก|มียา)\s*(?:ยา)?\s*([ก-๙a-zA-Z0-9]+(?:\s+[ก-๙a-zA-Z0-9]+)?)/gi,
+    /(?:paracetamol|ibuprofen|aspirin|ventolin|inhaler|antihistamine|cetirizine|loratadine|salbutamol|budesonide|montelukast|prednisolone)/gi,
+    /(?:ยาแก้แพ้|ยาแก้ไอ|ยาแก้หอบ|ยาพ่น|ยาสูด|ยาหยอดตา|ยาหยอดจมูก|ยาลดไข้)/gi,
+  ],
+  symptom: [
+    /(?:มีอาการ|เป็น|รู้สึก|ปวด|คัน|แสบ|เจ็บ|ไอ|จาม|หายใจลำบาก|แน่นหน้าอก|เหนื่อย|อ่อนเพลีย|ตาแดง|คัดจมูก|น้ำมูกไหล|หอบ|หืด)/gi,
+    /(?:cough|sneeze|wheeze|chest tightness|shortness of breath|fatigue|eye irritation|runny nose|headache)/gi,
+  ],
+  allergy: [
+    /(?:แพ้|allergy|allergic to)\s*([ก-๙a-zA-Z0-9\s,]+)/gi,
+    /(?:แพ้ยา|แพ้อาหาร|แพ้ฝุ่น|แพ้ละอองเกสร)/gi,
+  ],
+  preference: [
+    /(?:ชอบ|ต้องการ|อยากได้|prefer)\s*([ก-๙a-zA-Z0-9\s]+)/gi,
+  ],
+};
+
+// Function to extract memories from conversation
+function extractMemories(text: string): Array<{type: string; key: string; value: string}> {
+  const memories: Array<{type: string; key: string; value: string}> = [];
+  
+  // Medication extraction
+  const medicationKeywords = [
+    'paracetamol', 'ibuprofen', 'aspirin', 'ventolin', 'inhaler', 'antihistamine',
+    'cetirizine', 'loratadine', 'salbutamol', 'budesonide', 'montelukast', 'prednisolone',
+    'ยาแก้แพ้', 'ยาแก้ไอ', 'ยาแก้หอบ', 'ยาพ่น', 'ยาสูด', 'ยาหยอดตา', 'ยาหยอดจมูก', 'ยาลดไข้',
+    'ยาแก้ปวด', 'ยานอนหลับ', 'วิตามิน'
+  ];
+  
+  const lowerText = text.toLowerCase();
+  medicationKeywords.forEach(med => {
+    if (lowerText.includes(med.toLowerCase())) {
+      memories.push({ type: 'medication', key: med, value: text.substring(0, 200) });
+    }
+  });
+  
+  // Symptom extraction
+  const symptomKeywords = [
+    { key: 'cough', patterns: ['ไอ', 'cough', 'ไอแห้ง', 'ไอมีเสมหะ'] },
+    { key: 'sneeze', patterns: ['จาม', 'sneeze'] },
+    { key: 'wheeze', patterns: ['หอบ', 'หืด', 'wheeze', 'หายใจมีเสียง'] },
+    { key: 'chest_tightness', patterns: ['แน่นหน้าอก', 'chest tight', 'อึดอัด'] },
+    { key: 'shortness_of_breath', patterns: ['หายใจลำบาก', 'หายใจไม่สะดวก', 'shortness of breath', 'เหนื่อยหอบ'] },
+    { key: 'eye_irritation', patterns: ['ตาแดง', 'คันตา', 'แสบตา', 'eye irritation', 'ตาระคายเคือง'] },
+    { key: 'runny_nose', patterns: ['น้ำมูก', 'คัดจมูก', 'runny nose', 'จมูกตัน'] },
+    { key: 'headache', patterns: ['ปวดหัว', 'ปวดศีรษะ', 'headache', 'หัวตื้อ'] },
+    { key: 'fatigue', patterns: ['เหนื่อย', 'อ่อนเพลีย', 'ไม่มีแรง', 'fatigue', 'เพลีย'] },
+    { key: 'sore_throat', patterns: ['เจ็บคอ', 'คอแห้ง', 'sore throat', 'คออักเสบ'] },
+  ];
+  
+  symptomKeywords.forEach(symptom => {
+    symptom.patterns.forEach(pattern => {
+      if (lowerText.includes(pattern.toLowerCase())) {
+        memories.push({ type: 'symptom', key: symptom.key, value: text.substring(0, 200) });
+      }
+    });
+  });
+  
+  // Allergy extraction
+  const allergyPatterns = [
+    /แพ้\s*([ก-๙a-zA-Z0-9]+)/gi,
+    /allergic to\s*([a-zA-Z0-9]+)/gi,
+  ];
+  
+  allergyPatterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      memories.push({ type: 'allergy', key: match[1].trim(), value: text.substring(0, 200) });
+    }
+  });
+  
+  return memories;
+}
+
+// Generate follow-up questions based on context
+function generateFollowUpQuestions(
+  assistantMessage: string,
+  pm25: number | undefined,
+  userSymptoms: string[],
+  healthProfile: any
+): string[] {
+  const questions: string[] = [];
+  
+  // Based on PM2.5 level
+  if (pm25 && pm25 > 50) {
+    questions.push("ต้องการคำแนะนำเพิ่มเติมเกี่ยวกับการป้องกันฝุ่นไหม?");
+    questions.push("มีหน้ากาก N95 พร้อมใช้งานไหม?");
+  }
+  
+  // Based on symptoms mentioned
+  if (userSymptoms.length > 0) {
+    questions.push("อาการดีขึ้นหรือแย่ลงเมื่อเทียบกับวันก่อน?");
+    questions.push("ต้องการบันทึกอาการประจำวันไหม?");
+  }
+  
+  // Based on health profile
+  if (healthProfile?.chronic_conditions?.length > 0) {
+    const hasAsthma = healthProfile.chronic_conditions.some((c: string) => 
+      c.toLowerCase().includes('asthma') || c.includes('หอบหืด')
+    );
+    if (hasAsthma) {
+      questions.push("วันนี้ใช้ยาพ่นไปกี่ครั้งแล้ว?");
+    }
+  }
+  
+  // General follow-ups based on response content
+  if (assistantMessage.includes('ออกกำลังกาย') || assistantMessage.includes('exercise')) {
+    questions.push("สนใจคำแนะนำการออกกำลังกายในร่มไหม?");
+  }
+  
+  if (assistantMessage.includes('หน้ากาก') || assistantMessage.includes('mask')) {
+    questions.push("รู้วิธีใส่หน้ากาก N95 ให้ถูกต้องไหม?");
+  }
+  
+  if (assistantMessage.includes('เครื่องฟอก') || assistantMessage.includes('purifier')) {
+    questions.push("ต้องการคำแนะนำการเลือกซื้อเครื่องฟอกอากาศไหม?");
+  }
+  
+  // Return max 3 questions
+  return questions.slice(0, 3);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -116,6 +241,14 @@ serve(async (req) => {
       }
     }
 
+    // 5. Load user's health memory (medications, common symptoms, etc.)
+    const { data: healthMemory } = await supabaseClient
+      .from("user_health_memory")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("frequency", { ascending: false })
+      .limit(20);
+
     // =====================
     // RAG: Load Health Knowledge Base (Thai DOH Standards)
     // =====================
@@ -195,6 +328,28 @@ serve(async (req) => {
 - การใช้หน้ากาก: ${healthProfile.mask_usage || 'ไม่ระบุ'}
 - สภาพแวดล้อมทำงาน: ${healthProfile.work_environment || 'ไม่ระบุ'}
 - เวลาอยู่กลางแจ้งต่อวัน: ${healthProfile.outdoor_time_daily || 0} นาที`;
+    }
+
+    // Health Memory Context (medications, common symptoms, etc.)
+    let healthMemoryContext = "";
+    if (healthMemory && healthMemory.length > 0) {
+      const medications = healthMemory.filter((m: any) => m.memory_type === 'medication');
+      const symptoms = healthMemory.filter((m: any) => m.memory_type === 'symptom');
+      const allergies = healthMemory.filter((m: any) => m.memory_type === 'allergy');
+      
+      healthMemoryContext = `\n\n**🧠 ความจำจากบทสนทนาก่อนหน้า:**`;
+      
+      if (medications.length > 0) {
+        healthMemoryContext += `\n📦 ยาที่ผู้ใช้เคยพูดถึง: ${medications.map((m: any) => `${m.key} (พูดถึง ${m.frequency} ครั้ง)`).join(', ')}`;
+      }
+      
+      if (symptoms.length > 0) {
+        healthMemoryContext += `\n🤒 อาการที่พบบ่อย: ${symptoms.map((m: any) => `${m.key} (พูดถึง ${m.frequency} ครั้ง)`).join(', ')}`;
+      }
+      
+      if (allergies.length > 0) {
+        healthMemoryContext += `\n⚠️ ข้อมูลการแพ้: ${allergies.map((m: any) => m.key).join(', ')}`;
+      }
     }
 
     // Recent Symptoms Context
@@ -296,8 +451,9 @@ serve(async (req) => {
     const systemPrompt = `คุณคือ "หมอประจำตัว AI" ที่รู้จักผู้ใช้คนนี้อย่างลึกซึ้ง เหมือนแพทย์ที่ดูแลคนไข้มานานหลายปี
 
 **🧬 PERSONAL DOCTOR IDENTITY:**
-- คุณรู้ประวัติสุขภาพ, โรคประจำตัว, แนวโน้มอาการ, และพฤติกรรมของผู้ใช้คนนี้
+- คุณรู้ประวัติสุขภาพ, โรคประจำตัว, แนวโน้มอาการ, ยาที่ใช้, และพฤติกรรมของผู้ใช้คนนี้
 - พูดเหมือนหมอที่รู้จักคนไข้ดี: "จากประวัติคุณที่มีหอบหืด วันนี้ PM2.5 สูง ผมแนะนำว่า..."
+- ใช้ข้อมูลจาก "ความจำ" ในการให้คำแนะนำ เช่น ถ้าคนไข้เคยบอกว่าใช้ยา Ventolin ให้อ้างอิงถึงมัน
 - ไม่พูดแบบ AI ทั่วไป แต่พูดเหมือนแพทย์ที่ห่วงใยคนไข้จริงๆ
 
 **💊 HYPER-PERSONALIZED ADVICE:**
@@ -308,6 +464,8 @@ serve(async (req) => {
 4. **พฤติกรรม** → ออกกำลังกายบ่อยไหม? ทำงานกลางแจ้งไหม?
 5. **ประวัติอาการ 7 วันล่าสุด** → มีแนวโน้มอาการแย่ลงไหม?
 6. **PHRI ล่าสุด** → ความเสี่ยงสะสมเป็นอย่างไร?
+7. **ยาที่ใช้** → อ้างอิงยาที่คนไข้บอกเคยใช้
+8. **อาการที่พบบ่อย** → ใช้ข้อมูลจากความจำเพื่อแนะนำเฉพาะบุคคล
 
 **📋 STRUCTURED RESPONSE FORMAT:**
 ทุกคำตอบต้องมีโครงสร้างชัดเจน:
@@ -351,6 +509,7 @@ ${isHighRiskSituation ? `
 **📚 CLINICAL KNOWLEDGE:**
 ${environmentalData}
 ${personalHealthContext}
+${healthMemoryContext}
 ${symptomsContext}
 ${phriHistoryContext}
 ${riskAssessment}
@@ -373,7 +532,7 @@ ${knowledgeBaseContext}
       ...messages
     ];
 
-    // Save user message to history
+    // Save user message to history and extract memories
     if (saveHistory && sessionId) {
       const userMsg = messages.find((m: any) => m.role === 'user');
       if (userMsg) {
@@ -384,6 +543,43 @@ ${knowledgeBaseContext}
           content: userMsg.content,
           metadata: { pm25, aqi, temperature, humidity, location }
         });
+
+        // Extract and save memories from user message
+        const extractedMemories = extractMemories(userMsg.content);
+        for (const memory of extractedMemories) {
+          // Check if memory already exists
+          const { data: existing } = await supabaseClient
+            .from("user_health_memory")
+            .select("id, frequency")
+            .eq("user_id", user.id)
+            .eq("memory_type", memory.type)
+            .eq("key", memory.key)
+            .maybeSingle();
+
+          if (existing) {
+            // Update frequency
+            await supabaseClient
+              .from("user_health_memory")
+              .update({ 
+                frequency: existing.frequency + 1,
+                last_mentioned_at: new Date().toISOString(),
+                value: memory.value
+              })
+              .eq("id", existing.id);
+          } else {
+            // Insert new memory
+            await supabaseClient
+              .from("user_health_memory")
+              .insert({
+                user_id: user.id,
+                memory_type: memory.type,
+                key: memory.key,
+                value: memory.value
+              });
+          }
+        }
+        
+        console.log("🧠 Extracted memories:", extractedMemories.length);
       }
     }
 
@@ -391,6 +587,7 @@ ${knowledgeBaseContext}
       hasHealthProfile: !!healthProfile,
       recentSymptomsCount: recentSymptoms?.length || 0,
       recentHealthLogsCount: recentHealthLogs?.length || 0,
+      healthMemoryCount: healthMemory?.length || 0,
       knowledgeBaseCount: healthKnowledge.length,
       keywords
     });
@@ -440,6 +637,16 @@ ${knowledgeBaseContext}
     const decoder = new TextDecoder();
     let assistantMessage = "";
 
+    // Collect symptoms from recent logs for follow-up generation
+    const userSymptomsList: string[] = [];
+    if (recentSymptoms) {
+      recentSymptoms.forEach((log: any) => {
+        if (log.cough) userSymptomsList.push('cough');
+        if (log.sneeze) userSymptomsList.push('sneeze');
+        if (log.shortness_of_breath) userSymptomsList.push('shortness_of_breath');
+      });
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -469,12 +676,30 @@ ${knowledgeBaseContext}
           
           // Save assistant message to history after streaming completes
           if (saveHistory && sessionId && assistantMessage) {
+            // Generate follow-up questions
+            const followUpQuestions = generateFollowUpQuestions(
+              assistantMessage,
+              pm25,
+              userSymptomsList,
+              healthProfile
+            );
+
             await supabaseClient.from("conversation_history").insert({
               user_id: user.id,
               session_id: sessionId,
               role: 'assistant',
               content: assistantMessage,
+              metadata: { followUpQuestions }
             });
+            
+            // Send follow-up questions as a separate SSE event
+            if (followUpQuestions.length > 0) {
+              const followUpData = `data: ${JSON.stringify({ 
+                type: 'follow_up_questions', 
+                questions: followUpQuestions 
+              })}\n\n`;
+              controller.enqueue(new TextEncoder().encode(followUpData));
+            }
           }
           
           controller.close();
