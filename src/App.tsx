@@ -14,6 +14,7 @@ import Chat from "./pages/Chat";
 import Notifications from "./pages/Notifications";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
+import ProfileSetup from "./pages/ProfileSetup";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 
@@ -70,6 +71,14 @@ const App = () => {
                 element={
                   <ErrorBoundary isolate>
                     <Install />
+                  </ErrorBoundary>
+                } 
+              />
+              <Route 
+                path="/profile-setup" 
+                element={
+                  <ErrorBoundary isolate>
+                    <ProfileSetup />
                   </ErrorBoundary>
                 } 
               />
