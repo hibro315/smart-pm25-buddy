@@ -1,5 +1,5 @@
 import { RouteWithPM25 } from '@/hooks/useRoutePM25';
-import HealthRiskEngine, { DiseaseProfile } from '@/engine/HealthRiskEngine';
+import HealthRiskEngine, { DiseaseProfile, PHRIResult } from '@/engine/HealthRiskEngine';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -39,7 +39,6 @@ export const RouteComparisonPanel = ({
   diseaseProfile = 'general',
   onSelectRoute,
 }: RouteComparisonPanelProps) => {
-  const riskEngine = useMemo(() => new HealthRiskEngine(), []);
 
   const analyzeRoutes = useMemo((): RouteAnalysis[] => {
     if (routes.length === 0) return [];
@@ -47,13 +46,21 @@ export const RouteComparisonPanel = ({
     const baseRoute = routes[0];
     
     return routes.map((route, index) => {
-      // Calculate PHRI for 30-minute exposure at moderate activity
-      const phriResult = riskEngine.calculatePHRI({
-        pm25: route.averagePM25,
-        exposureDuration: route.duration,
-        activityLevel: 'moderate',
-        diseaseProfile,
-      });
+      // Calculate PHRI using the engine function
+      const phriResult: PHRIResult = HealthRiskEngine.computePHRI(
+        {
+          pm25: route.averagePM25,
+          durationMinutes: route.duration,
+          activityLevel: 'moderate',
+          isOutdoor: true,
+          hasMask: false,
+        },
+        {
+          age: 30,
+          diseases: diseaseProfile !== 'general' ? [diseaseProfile] : [],
+          smokingStatus: 'never',
+        }
+      );
 
       const timeDiff = route.duration - baseRoute.duration;
       const riskDiff = baseRoute.averagePM25 - route.averagePM25;
@@ -61,18 +68,19 @@ export const RouteComparisonPanel = ({
       return {
         route,
         phri: phriResult.score,
-        riskCategory: phriResult.category,
+        riskCategory: phriResult.level,
         healthImpact: getHealthImpact(phriResult.score, diseaseProfile),
         timeCost: timeDiff,
         riskReduction: riskDiff > 0 ? (riskDiff / baseRoute.averagePM25) * 100 : 0,
       };
     });
-  }, [routes, diseaseProfile, riskEngine]);
+  }, [routes, diseaseProfile]);
 
-  const bestRoute = analyzeRoutes.reduce((best, current) => 
-    current.phri < best.phri ? current : best, analyzeRoutes[0]);
+  const bestRoute = analyzeRoutes.length > 0 
+    ? analyzeRoutes.reduce((best, current) => current.phri < best.phri ? current : best, analyzeRoutes[0])
+    : null;
 
-  if (routes.length === 0) return null;
+  if (routes.length === 0 || !bestRoute) return null;
 
   return (
     <Card className="border-2 border-primary/20 shadow-elevated">
@@ -155,9 +163,6 @@ export const RouteComparisonPanel = ({
                   <Progress 
                     value={analysis.phri} 
                     className="h-2"
-                    style={{
-                      '--progress-background': getPHRIColor(analysis.phri),
-                    } as React.CSSProperties}
                   />
                 </div>
 
@@ -244,12 +249,12 @@ const StatItem = ({
 
 const RiskBadge = ({ category }: { category: string }) => {
   const config: Record<string, { bg: string; text: string }> = {
-    'Low': { bg: 'bg-success', text: 'ความเสี่ยงต่ำ' },
-    'Moderate': { bg: 'bg-warning', text: 'ปานกลาง' },
-    'High': { bg: 'bg-destructive', text: 'ความเสี่ยงสูง' },
-    'Severe': { bg: 'bg-purple-600', text: 'อันตราย' },
+    'low': { bg: 'bg-success', text: 'ความเสี่ยงต่ำ' },
+    'moderate': { bg: 'bg-warning', text: 'ปานกลาง' },
+    'high': { bg: 'bg-destructive', text: 'ความเสี่ยงสูง' },
+    'severe': { bg: 'bg-purple-600', text: 'อันตราย' },
   };
-  const { bg, text } = config[category] || config['Moderate'];
+  const { bg, text } = config[category] || config['moderate'];
   
   return <Badge className={`${bg} text-white text-xs`}>{text}</Badge>;
 };
@@ -296,15 +301,12 @@ function getDiseaseLabel(profile: DiseaseProfile): string {
     'cardiovascular': 'โรคหัวใจ',
     'elderly': 'ผู้สูงอายุ',
     'general': 'ทั่วไป',
+    'diabetes': 'เบาหวาน',
+    'child': 'เด็ก',
+    'pregnant': 'หญิงตั้งครรภ์',
+    'immunocompromised': 'ภูมิคุ้มกันต่ำ',
   };
   return labels[profile] || 'ทั่วไป';
-}
-
-function getPHRIColor(score: number): string {
-  if (score < 25) return 'hsl(142 71% 45%)'; // success
-  if (score < 50) return 'hsl(38 92% 50%)';  // warning
-  if (score < 75) return 'hsl(0 84% 60%)';   // destructive
-  return 'hsl(282 44% 43%)';                  // severe
 }
 
 export default RouteComparisonPanel;

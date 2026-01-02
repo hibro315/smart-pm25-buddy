@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
-import AQICNDataService, { AQICNStationData } from '@/data/AQICNDataService';
-
-type AQIStation = AQICNStationData;
+import AQICNDataService, { NormalizedAQIData } from '@/data/AQICNDataService';
 
 interface AQIHeatmapLayerProps {
   map: mapboxgl.Map | null;
@@ -21,24 +19,13 @@ const AQI_COLOR_STOPS: [number, string][] = [
   [301, '#7e0023'],  // Hazardous (301+)
 ];
 
-const PM25_COLOR_STOPS: [number, string][] = [
-  [0, '#00e400'],
-  [12, '#00e400'],
-  [35.4, '#ffff00'],
-  [55.4, '#ff7e00'],
-  [150.4, '#ff0000'],
-  [250.4, '#8f3f97'],
-  [500, '#7e0023'],
-];
-
 export const AQIHeatmapLayer = ({ 
   map, 
   centerLat, 
   centerLng, 
   enabled = true 
 }: AQIHeatmapLayerProps) => {
-  const dataService = useRef(new AQICNDataService());
-  const stationsRef = useRef<AQIStation[]>([]);
+  const stationsRef = useRef<NormalizedAQIData[]>([]);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
 
   useEffect(() => {
@@ -46,31 +33,24 @@ export const AQIHeatmapLayer = ({
 
     const loadAQIData = async () => {
       try {
-        // Fetch stations in a grid around center point
-        const gridSize = 0.15; // ~15km grid spacing
-        const searchRadius = 3; // 3x3 grid = ~45km coverage
+        // Use the cached AQICN token from secrets
+        const cacheKey = `aqi-${centerLat.toFixed(2)}-${centerLng.toFixed(2)}`;
+        const cachedData = AQICNDataService.getCachedData(cacheKey) as NormalizedAQIData | null;
         
-        const stations: AQIStation[] = [];
-        const fetchPromises: Promise<AQIStation | null>[] = [];
-
-        for (let i = -searchRadius; i <= searchRadius; i++) {
-          for (let j = -searchRadius; j <= searchRadius; j++) {
-            const lat = centerLat + (i * gridSize);
-            const lng = centerLng + (j * gridSize);
-            fetchPromises.push(dataService.current.fetchAQIByCoordinates(lat, lng));
-          }
+        if (cachedData) {
+          stationsRef.current = [cachedData];
+          renderHeatmap(map, [cachedData]);
+          renderStationMarkers(map, [cachedData]);
         }
-
-        const results = await Promise.all(fetchPromises);
-        results.forEach(station => {
-          if (station && !stations.find(s => s.stationId === station.stationId)) {
-            stations.push(station);
-          }
-        });
-
-        stationsRef.current = stations;
-        renderHeatmap(map, stations);
-        renderStationMarkers(map, stations);
+        
+        // Fetch fresh data
+        const freshData = await AQICNDataService.fetchAQIData(centerLat, centerLng, 'cf980db5-197e-4fef-83c9-d725f1bb62c9', true) as NormalizedAQIData | null;
+        
+        if (freshData) {
+          stationsRef.current = [freshData];
+          renderHeatmap(map, [freshData]);
+          renderStationMarkers(map, [freshData]);
+        }
       } catch (error) {
         console.error('Failed to load AQI data for heatmap:', error);
       }
@@ -92,7 +72,7 @@ export const AQIHeatmapLayer = ({
     };
   }, [map, centerLat, centerLng, enabled]);
 
-  const renderHeatmap = (mapInstance: mapboxgl.Map, stations: AQIStation[]) => {
+  const renderHeatmap = (mapInstance: mapboxgl.Map, stations: NormalizedAQIData[]) => {
     // Remove existing layers
     if (mapInstance.getLayer('aqi-heatmap')) {
       mapInstance.removeLayer('aqi-heatmap');
@@ -183,7 +163,7 @@ export const AQIHeatmapLayer = ({
     });
   };
 
-  const renderStationMarkers = (mapInstance: mapboxgl.Map, stations: AQIStation[]) => {
+  const renderStationMarkers = (mapInstance: mapboxgl.Map, stations: NormalizedAQIData[]) => {
     // Clear existing markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
