@@ -114,6 +114,19 @@ const translations: Record<Language, Record<string, string>> = {
     'map.updating': 'อัปเดต...',
     'map.loading': 'กำลังโหลด...',
     
+    // Location Permission
+    'location.granted.title': 'ระบุตำแหน่งสำเร็จ',
+    'location.granted.description': 'แอปสามารถเข้าถึงตำแหน่งของคุณได้',
+    'location.denied.title': 'ไม่ได้รับอนุญาต',
+    'location.denied.description': 'กรุณาเปิดการเข้าถึงตำแหน่งในการตั้งค่า',
+    'location.prompt.title': 'ขออนุญาตเข้าถึงตำแหน่ง',
+    'location.prompt.description': 'เพื่อแสดงคุณภาพอากาศและเส้นทางในพื้นที่ของคุณ',
+    'location.current': 'ตำแหน่งปัจจุบัน',
+    'location.accuracy': 'ความแม่นยำ',
+    'location.refresh': 'รีเฟรชตำแหน่ง',
+    'location.openSettings': 'เปิดการตั้งค่า',
+    'location.allow': 'อนุญาตตำแหน่ง',
+    
     // Profile Setup
     'profile.setup.title': 'สร้างโปรไฟล์สุขภาพของคุณ',
     'profile.setup.subtitle': 'เพื่อให้เราดูแลสุขภาพของคุณได้อย่างเฉพาะเจาะจง',
@@ -335,6 +348,19 @@ const translations: Record<Language, Record<string, string>> = {
     'map.updating': 'Updating...',
     'map.loading': 'Loading...',
     
+    // Location Permission
+    'location.granted.title': 'Location detected',
+    'location.granted.description': 'App can access your location',
+    'location.denied.title': 'Permission denied',
+    'location.denied.description': 'Please enable location access in settings',
+    'location.prompt.title': 'Location permission required',
+    'location.prompt.description': 'To show air quality and routes in your area',
+    'location.current': 'Current location',
+    'location.accuracy': 'Accuracy',
+    'location.refresh': 'Refresh location',
+    'location.openSettings': 'Open Settings',
+    'location.allow': 'Allow Location',
+    
     // Profile Setup
     'profile.setup.title': 'Create Your Health Profile',
     'profile.setup.subtitle': 'To provide personalized health recommendations',
@@ -555,6 +581,19 @@ const translations: Record<Language, Record<string, string>> = {
     'map.analyzing': '正在分析最安全的路线...',
     'map.updating': '更新中...',
     'map.loading': '加载中...',
+    
+    // Location Permission
+    'location.granted.title': '位置已检测',
+    'location.granted.description': '应用可以访问您的位置',
+    'location.denied.title': '权限被拒绝',
+    'location.denied.description': '请在设置中启用位置访问',
+    'location.prompt.title': '需要位置权限',
+    'location.prompt.description': '显示您所在地区的空气质量和路线',
+    'location.current': '当前位置',
+    'location.accuracy': '精度',
+    'location.refresh': '刷新位置',
+    'location.openSettings': '打开设置',
+    'location.allow': '允许位置',
     
     // Profile Setup
     'profile.setup.title': '创建您的健康档案',
