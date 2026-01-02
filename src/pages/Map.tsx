@@ -12,6 +12,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { useAirQualityWithFallback } from '@/hooks/useAirQualityWithFallback';
 import { useRoutePM25 } from '@/hooks/useRoutePM25';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { HealthNavigationMap } from '@/components/navigation/HealthNavigationMap';
 import { RouteRecommendationPanel } from '@/components/navigation/RouteRecommendationPanel';
 import { TravelModeRecommender } from '@/components/navigation/TravelModeRecommender';
@@ -26,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 const Map = () => {
+  const { t } = useLanguage();
   const { data: aqiData, refreshing } = useAirQualityWithFallback();
   const { routes, recommendedRoute, loading, analyzeRoutes } = useRoutePM25();
   const { profile } = useHealthProfile();
@@ -98,19 +100,19 @@ const Map = () => {
       color: 'text-success', 
       bg: 'from-success/20 to-success/5',
       glow: 'shadow-glow-mint',
-      label: 'ดี'
+      label: t('map.aqi.good')
     };
     if (currentPM25 <= 50) return { 
       color: 'text-warning', 
       bg: 'from-warning/20 to-warning/5',
       glow: 'shadow-glow-warm',
-      label: 'ปานกลาง'
+      label: t('map.aqi.moderate')
     };
     return { 
       color: 'text-destructive', 
       bg: 'from-destructive/20 to-destructive/5',
       glow: 'shadow-glow-alert',
-      label: 'ไม่ดี'
+      label: t('map.aqi.unhealthy')
     };
   };
 
@@ -140,10 +142,10 @@ const Map = () => {
               </div>
               <div>
                 <h1 className="text-lg font-display font-bold text-gradient-primary flex items-center gap-2">
-                  Health Navigation
+                  {t('map.title')}
                 </h1>
                 <p className="text-[10px] text-muted-foreground">
-                  เส้นทางที่ปลอดภัยสำหรับสุขภาพ
+                  {t('map.subtitle')}
                 </p>
               </div>
             </div>
@@ -152,7 +154,7 @@ const Map = () => {
             {hasRespiratoryCondition && (
               <Badge variant="outline" className="text-[10px] bg-warning/10 border-warning/30 text-warning">
                 <AlertTriangle className="h-3 w-3 mr-1" />
-                กลุ่มเสี่ยง
+                {t('map.risk.group')}
               </Badge>
             )}
             <UserMenu />
@@ -191,9 +193,9 @@ const Map = () => {
                   <Wind className={cn("h-6 w-6", aqiStatus.color)} />
                 </motion.div>
                 <div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3 text-primary" />
-                    PM2.5 ตอนนี้
+                    {t('map.pm25.now')}
                   </p>
                   <div className="flex items-baseline gap-2">
                     <p className={cn("text-3xl font-bold font-mono", aqiStatus.color)}>
@@ -209,12 +211,12 @@ const Map = () => {
               <div className="text-right">
                 <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
                   <MapPin className="h-3 w-3" />
-                  {aqiData?.location || 'กำลังโหลด...'}
+                  {aqiData?.location || t('map.loading')}
                 </p>
                 {refreshing && (
                   <p className="text-xs text-primary mt-1 flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    อัปเดต...
+                    {t('map.updating')}
                   </p>
                 )}
               </div>
@@ -231,13 +233,13 @@ const Map = () => {
           <Card className="p-5 border-0 bg-card/80 backdrop-blur-sm shadow-soft">
             <p className="text-sm font-medium mb-3 flex items-center gap-2 text-gradient-primary">
               <Shield className="h-4 w-4 text-primary" />
-              ค้นหาเส้นทางที่ปลอดภัย
+              {t('map.search.safe.route')}
             </p>
             <SmartLocationSearch
               onSelectLocation={handleLocationSelect}
               currentLat={currentPosition.lat}
               currentLng={currentPosition.lng}
-              placeholder="ไปไหน? เช่น สยาม, เซ็นทรัล..."
+              placeholder={t('map.search.placeholder')}
             />
             {selectedLocation && (
               <motion.p 
@@ -263,7 +265,7 @@ const Map = () => {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full animate-glow-pulse" />
             </div>
-            <p className="text-sm text-muted-foreground">กำลังวิเคราะห์เส้นทางที่ปลอดภัยที่สุด...</p>
+            <p className="text-sm text-muted-foreground">{t('map.analyzing')}</p>
           </motion.div>
         )}
 

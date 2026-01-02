@@ -19,12 +19,14 @@ import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useDailySymptoms } from "@/hooks/useDailySymptoms";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Activity, TrendingUp, History, User, Sparkles, Shield, Pencil } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
+  const { t } = useLanguage();
   const { profile, loading: profileLoading } = useHealthProfile();
   const { calculateEnhancedPHRI, saveEnhancedPHRILog } = useEnhancedPHRI();
   const { data, loading: airQualityLoading } = useAirQualityWithFallback();
@@ -105,10 +107,10 @@ const Dashboard = () => {
       }
       
       const decisions: Record<typeof riskLevel, string> = {
-        safe: 'ทำกิจกรรมกลางแจ้งได้ตามปกติ',
-        caution: 'จำกัดกิจกรรมกลางแจ้ง ใส่หน้ากากหากออกนอกอาคาร',
-        warning: 'หลีกเลี่ยงกิจกรรมกลางแจ้ง อยู่ในอาคารที่มีเครื่องฟอกอากาศ',
-        danger: 'อยู่ในอาคารปิด หลีกเลี่ยงออกนอกบ้านโดยเด็ดขาด',
+        safe: t('dashboard.decision.safe'),
+        caution: t('dashboard.decision.caution'),
+        warning: t('dashboard.decision.warning'),
+        danger: t('dashboard.decision.danger'),
       };
       
       setDecisionData({
@@ -118,22 +120,22 @@ const Dashboard = () => {
         supportingFacts: [
           `PM2.5: ${pm25} µg/m³`,
           `AQI: ${data.aqi}`,
-          hasRespiratoryCondition ? 'มีโรคทางเดินหายใจ - ปรับเกณฑ์เข้มงวดขึ้น' : '',
+          hasRespiratoryCondition ? t('dashboard.respiratory.condition') : '',
         ].filter(Boolean),
         options: [
           {
             id: 'mask',
-            action: 'สวมหน้ากาก N95',
+            action: t('dashboard.action.mask'),
             riskReduction: 80,
             feasibility: 'easy' as const,
-            timeToImplement: 'ทันที',
+            timeToImplement: t('dashboard.action.immediate'),
           },
           {
             id: 'indoor',
-            action: 'อยู่ในอาคาร',
+            action: t('dashboard.action.indoor'),
             riskReduction: 60,
             feasibility: 'easy' as const,
-            timeToImplement: 'ทันที',
+            timeToImplement: t('dashboard.action.immediate'),
           },
         ],
       });
@@ -179,10 +181,10 @@ const Dashboard = () => {
                 </div>
               </div>
               <div>
-                <h1 className="text-2xl font-display font-bold text-gradient-primary">Health Dashboard</h1>
+                <h1 className="text-2xl font-display font-bold text-gradient-primary">{t('dashboard.title')}</h1>
                 <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
                   <Shield className="h-3 w-3 text-accent" />
-                  ระบบติดตามสุขภาพอัจฉริยะ
+                  {t('dashboard.subtitle')}
                 </p>
               </div>
             </div>
@@ -261,28 +263,28 @@ const Dashboard = () => {
                 className="flex items-center gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-soft data-[state=active]:text-primary transition-all duration-300"
               >
                 <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">เทรนด์</span>
+                <span className="hidden sm:inline">{t('dashboard.tab.trends')}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="analysis" 
                 className="flex items-center gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-soft data-[state=active]:text-primary transition-all duration-300"
               >
                 <Activity className="w-4 h-4" />
-                <span className="hidden sm:inline">วิเคราะห์</span>
+                <span className="hidden sm:inline">{t('dashboard.tab.analysis')}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="history" 
                 className="flex items-center gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-soft data-[state=active]:text-primary transition-all duration-300"
               >
                 <History className="w-4 h-4" />
-                <span className="hidden sm:inline">ประวัติ</span>
+                <span className="hidden sm:inline">{t('dashboard.tab.history')}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="profile" 
                 className="flex items-center gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:shadow-soft data-[state=active]:text-primary transition-all duration-300"
               >
                 <User className="w-4 h-4" />
-                <span className="hidden sm:inline">โปรไฟล์</span>
+                <span className="hidden sm:inline">{t('dashboard.tab.profile')}</span>
               </TabsTrigger>
             </TabsList>
 
@@ -313,8 +315,8 @@ const Dashboard = () => {
                     <User className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">โปรไฟล์สุขภาพ</h3>
-                    <p className="text-sm text-muted-foreground">แก้ไขข้อมูลเพื่อรับคำแนะนำที่เหมาะสม</p>
+                    <h3 className="font-semibold text-foreground">{t('dashboard.health.profile')}</h3>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.health.profile.desc')}</p>
                   </div>
                 </div>
                 <Button
@@ -329,7 +331,7 @@ const Dashboard = () => {
                   }}
                 >
                   <Pencil className="w-4 h-4" />
-                  แก้ไข
+                  {t('common.edit')}
                 </Button>
               </motion.div>
               <div data-profile-form>
