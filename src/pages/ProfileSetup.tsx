@@ -9,7 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
 import { WelcomeAnimation } from '@/components/WelcomeAnimation';
-import { Heart, User, Activity, Wind, ChevronRight, ChevronLeft, Sparkles, Shield } from 'lucide-react';
+import { Heart, User, Activity, Wind, ChevronRight, ChevronLeft, Sparkles, Shield, CheckCircle2, Edit3 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 
 const CHRONIC_CONDITIONS = [
@@ -28,6 +29,7 @@ const steps = [
   { id: 'health', title: 'สุขภาพ', icon: Heart, description: 'ประวัติสุขภาพของคุณ' },
   { id: 'environment', title: 'สิ่งแวดล้อม', icon: Wind, description: 'ปัจจัยเสี่ยงรอบตัว' },
   { id: 'lifestyle', title: 'ไลฟ์สไตล์', icon: Activity, description: 'กิจกรรมประจำวัน' },
+  { id: 'confirm', title: 'ยืนยัน', icon: CheckCircle2, description: 'ตรวจสอบข้อมูล' },
 ];
 
 export default function ProfileSetup() {
@@ -144,6 +146,8 @@ export default function ProfileSetup() {
         return dustSensitivity;
       case 3:
         return physicalActivity;
+      case 4:
+        return true; // Confirmation step is always valid
       default:
         return true;
     }
@@ -624,6 +628,194 @@ export default function ProfileSetup() {
                         </motion.div>
                       ))}
                     </RadioGroup>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 5: Confirmation */}
+              {currentStep === 4 && (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
+                >
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">ยืนยันข้อมูล</h2>
+                      <p className="text-sm text-muted-foreground">ตรวจสอบข้อมูลก่อนบันทึก</p>
+                    </div>
+                  </div>
+
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-4">
+                      {/* Personal Info Summary */}
+                      <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-primary" />
+                            <h3 className="font-medium">ข้อมูลส่วนตัว</h3>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentStep(0)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            แก้ไข
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="text-muted-foreground">ชื่อ:</div>
+                          <div>{name || 'ไม่ระบุ'}</div>
+                          <div className="text-muted-foreground">อายุ:</div>
+                          <div>{age} ปี</div>
+                          <div className="text-muted-foreground">เพศ:</div>
+                          <div>{gender === 'male' ? 'ชาย' : gender === 'female' ? 'หญิง' : 'อื่นๆ'}</div>
+                          {height && (
+                            <>
+                              <div className="text-muted-foreground">ส่วนสูง:</div>
+                              <div>{height} ซม.</div>
+                            </>
+                          )}
+                          {weight && (
+                            <>
+                              <div className="text-muted-foreground">น้ำหนัก:</div>
+                              <div>{weight} กก.</div>
+                            </>
+                          )}
+                          <div className="text-muted-foreground">อาชีพ:</div>
+                          <div>{occupation === 'indoor' ? 'ทำงานในอาคาร' : occupation === 'outdoor' ? 'ทำงานกลางแจ้ง' : occupation === 'student' ? 'นักเรียน/นักศึกษา' : 'อื่นๆ'}</div>
+                          {location && (
+                            <>
+                              <div className="text-muted-foreground">ที่อยู่:</div>
+                              <div>{location}</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Health History Summary */}
+                      <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Heart className="w-4 h-4 text-destructive" />
+                            <h3 className="font-medium">ประวัติสุขภาพ</h3>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentStep(1)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            แก้ไข
+                          </Button>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">โรคประจำตัว: </span>
+                            <span>
+                              {chronicConditions.includes('none') 
+                                ? 'ไม่มี' 
+                                : chronicConditions.map(c => CHRONIC_CONDITIONS.find(cc => cc.id === c)?.label).join(', ')
+                              }
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">การสูบบุหรี่: </span>
+                            <span>{smokingStatus === 'non_smoker' ? 'ไม่สูบ' : smokingStatus === 'occasional' ? 'สูบบ้าง' : 'สูบประจำ'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">การดื่มแอลกอฮอล์: </span>
+                            <span>{alcoholConsumption === 'none' ? 'ไม่ดื่ม' : alcoholConsumption === 'occasional' ? 'ดื่มบ้าง' : 'ดื่มประจำ'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Environment Summary */}
+                      <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Wind className="w-4 h-4 text-blue-500" />
+                            <h3 className="font-medium">สิ่งแวดล้อม</h3>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentStep(2)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            แก้ไข
+                          </Button>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">ความไวต่อฝุ่น: </span>
+                            <span>{dustSensitivity === 'low' ? 'ต่ำ' : dustSensitivity === 'medium' ? 'ปานกลาง' : 'สูง'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">เครื่องฟอกอากาศ: </span>
+                            <span>{hasAirPurifier ? 'มี' : 'ไม่มี'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">การใช้หน้ากาก: </span>
+                            <span>
+                              {maskUsage === 'none' ? 'ไม่ใช้' : maskUsage === 'regular' ? 'หน้ากากผ้า/อนามัย' : maskUsage === 'n95' ? 'N95' : 'KF94'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Lifestyle Summary */}
+                      <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-orange-500" />
+                            <h3 className="font-medium">ไลฟ์สไตล์</h3>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCurrentStep(3)}
+                            className="h-8 gap-1 text-xs"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            แก้ไข
+                          </Button>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">กิจกรรม: </span>
+                            <span>{physicalActivity === 'sedentary' ? 'นั่งทำงาน' : physicalActivity === 'moderate' ? 'ปานกลาง' : 'กระฉับกระเฉง'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">เวลากลางแจ้ง: </span>
+                            <span>
+                              {outdoorTimeRange === '<1' ? 'น้อยกว่า 1 ชม.' : outdoorTimeRange === '1-3' ? '1-3 ชม.' : outdoorTimeRange === '3-5' ? '3-5 ชม.' : 'มากกว่า 5 ชม.'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">ออกกำลังกาย: </span>
+                            <span>
+                              {exerciseFrequency === '0' ? 'ไม่ออก' : exerciseFrequency === '1-2' ? '1-2 ครั้ง/สัปดาห์' : exerciseFrequency === '3-4' ? '3-4 ครั้ง/สัปดาห์' : '5+ ครั้ง/สัปดาห์'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollArea>
+
+                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                    <p className="text-sm text-center text-green-700 dark:text-green-300">
+                      ✅ ข้อมูลครบถ้วน พร้อมบันทึก
+                    </p>
                   </div>
                 </motion.div>
               )}
