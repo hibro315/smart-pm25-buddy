@@ -35,6 +35,7 @@ const steps = [
 export default function ProfileSetup() {
   const { saveProfile, saving } = useHealthProfile();
   const [currentStep, setCurrentStep] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 for forward, -1 for backward
   const [showWelcome, setShowWelcome] = useState(false);
   const [savedName, setSavedName] = useState('');
   
@@ -61,6 +62,25 @@ export default function ProfileSetup() {
 
   const progress = ((currentStep + 1) / steps.length) * 100;
 
+  // Animation variants for step transitions
+  const stepVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.95,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction < 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.95,
+    }),
+  };
+
   const handleConditionToggle = (conditionId: string) => {
     if (conditionId === 'none') {
       setChronicConditions(['none']);
@@ -76,14 +96,21 @@ export default function ProfileSetup() {
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
+      setDirection(1);
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
+      setDirection(-1);
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const goToStep = (stepIndex: number) => {
+    setDirection(stepIndex > currentStep ? 1 : -1);
+    setCurrentStep(stepIndex);
   };
 
   const handleSubmit = async () => {
@@ -227,14 +254,17 @@ export default function ProfileSetup() {
           transition={{ delay: 0.2 }}
         >
           <Card className="p-6 bg-card/80 backdrop-blur-xl border-border/50 shadow-2xl">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" custom={direction}>
               {/* Step 1: Personal Info */}
               {currentStep === 0 && (
                 <motion.div
                   key="personal"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
+                  custom={direction}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   className="space-y-6"
                 >
                   <div className="flex items-center gap-3 mb-6">

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
@@ -15,6 +16,7 @@ import Notifications from "./pages/Notifications";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
 import ProfileSetup from "./pages/ProfileSetup";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 
@@ -52,94 +54,106 @@ const App = () => {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Auth Routes */}
-              <Route 
-                path="/auth" 
-                element={
-                  <ErrorBoundary isolate>
-                    <Auth />
-                  </ErrorBoundary>
-                } 
-              />
-              <Route 
-                path="/install" 
-                element={
-                  <ErrorBoundary isolate>
-                    <Install />
-                  </ErrorBoundary>
-                } 
-              />
-              <Route 
-                path="/profile-setup" 
-                element={
-                  <ErrorBoundary isolate>
-                    <ProfileSetup />
-                  </ErrorBoundary>
-                } 
-              />
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Auth Routes */}
+                <Route 
+                  path="/auth" 
+                  element={
+                    <ErrorBoundary isolate>
+                      <Auth />
+                    </ErrorBoundary>
+                  } 
+                />
+                <Route 
+                  path="/install" 
+                  element={
+                    <ErrorBoundary isolate>
+                      <Install />
+                    </ErrorBoundary>
+                  } 
+                />
+                <Route 
+                  path="/profile-setup" 
+                  element={
+                    <ErrorBoundary isolate>
+                      <ProfileSetup />
+                    </ErrorBoundary>
+                  } 
+                />
 
-              {/* Main App Routes with Bottom Navigation - Protected */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <>
-                    <ErrorBoundary isolate>
-                      <Home />
-                    </ErrorBoundary>
-                    <BottomNav />
-                  </>
-                </ProtectedRoute>
-              } />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <>
-                    <ErrorBoundary isolate>
-                      <Dashboard />
-                    </ErrorBoundary>
-                    <BottomNav />
-                  </>
-                </ProtectedRoute>
-              } />
-              <Route path="/map" element={
-                <ProtectedRoute>
-                  <>
-                    <ErrorBoundary isolate>
-                      <Map />
-                    </ErrorBoundary>
-                    <BottomNav />
-                  </>
-                </ProtectedRoute>
-              } />
-              <Route path="/chat" element={
-                <ProtectedRoute>
-                  <>
-                    <ErrorBoundary isolate>
-                      <Chat />
-                    </ErrorBoundary>
-                    <BottomNav />
-                  </>
-                </ProtectedRoute>
-              } />
-              <Route path="/notifications" element={
-                <ProtectedRoute>
-                  <>
-                    <ErrorBoundary isolate>
-                      <Notifications />
-                    </ErrorBoundary>
-                    <BottomNav />
-                  </>
-                </ProtectedRoute>
-              } />
+                {/* Main App Routes with Bottom Navigation - Protected */}
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Home />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Dashboard />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
+                <Route path="/map" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Map />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
+                <Route path="/chat" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Chat />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Notifications />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <>
+                      <ErrorBoundary isolate>
+                        <Settings />
+                      </ErrorBoundary>
+                      <BottomNav />
+                    </>
+                  </ProtectedRoute>
+                } />
 
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
