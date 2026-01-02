@@ -1,12 +1,9 @@
 import { useConversation } from "@elevenlabs/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { AwarenessPortal } from "./AwarenessPortal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Settings, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface VoiceHealthInterfaceProps {
   pm25?: number;
@@ -16,6 +13,9 @@ interface VoiceHealthInterfaceProps {
   humidity?: number;
   location?: string;
 }
+
+// Hardcoded ElevenLabs Agent ID
+const ELEVENLABS_AGENT_ID = "agent_0201kdyddt5jf9grj2n01htwpk70";
 
 export const VoiceHealthInterface = ({
   pm25,
@@ -28,17 +28,6 @@ export const VoiceHealthInterface = ({
   const { toast } = useToast();
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [agentId, setAgentId] = useState(() => 
-    localStorage.getItem("elevenlabs_agent_id") || ""
-  );
-
-  // Save agent ID to localStorage
-  useEffect(() => {
-    if (agentId) {
-      localStorage.setItem("elevenlabs_agent_id", agentId);
-    }
-  }, [agentId]);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -87,22 +76,13 @@ export const VoiceHealthInterface = ({
   }, [pm25, location]);
 
   const startConversation = useCallback(async () => {
-    if (!agentId.trim()) {
-      setShowSettings(true);
-      toast({
-        title: "ต้องการ Agent ID",
-        description: "กรุณาตั้งค่า ElevenLabs Agent ID ก่อน",
-      });
-      return;
-    }
-
     setIsConnecting(true);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const { data, error } = await supabase.functions.invoke(
         "elevenlabs-conversation-token",
-        { body: { agentId: agentId.trim() } }
+        { body: { agentId: ELEVENLABS_AGENT_ID } }
       );
 
       if (error || !data?.token) {
@@ -129,7 +109,7 @@ export const VoiceHealthInterface = ({
     } finally {
       setIsConnecting(false);
     }
-  }, [conversation, agentId, buildContextMessage, toast]);
+  }, [conversation, buildContextMessage, toast]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -139,62 +119,6 @@ export const VoiceHealthInterface = ({
 
   return (
     <div className="relative min-h-screen bg-ambient">
-      {/* Settings button */}
-      <button
-        onClick={() => setShowSettings(!showSettings)}
-        className={cn(
-          "absolute top-4 right-4 z-20 p-3 rounded-full",
-          "glass-card hover-lift"
-        )}
-      >
-        <Settings className="w-5 h-5 text-muted-foreground" />
-      </button>
-
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="absolute top-16 right-4 z-20 w-80 animate-fade-in">
-          <div className="glass-card p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display font-medium">ตั้งค่า Voice AI</h3>
-              <button onClick={() => setShowSettings(false)}>
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">
-                ElevenLabs Agent ID
-              </label>
-              <Input
-                value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
-                placeholder="ใส่ Agent ID"
-                className="bg-background/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                สร้าง Agent ได้ที่{" "}
-                <a 
-                  href="https://elevenlabs.io/app/conversational-ai" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  ElevenLabs Console
-                </a>
-              </p>
-            </div>
-
-            <Button 
-              onClick={() => setShowSettings(false)}
-              className="w-full"
-              disabled={!agentId.trim()}
-            >
-              บันทึก
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Main portal */}
       <AwarenessPortal
         pm25={pm25}
