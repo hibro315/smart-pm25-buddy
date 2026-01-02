@@ -3,9 +3,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Navigation, Loader2, AlertTriangle, Layers, Eye, EyeOff } from 'lucide-react';
+import { MapPin, Navigation, Loader2, AlertTriangle, Layers, Eye, EyeOff, Locate, LocateFixed } from 'lucide-react';
 import { useRoutePM25 } from '@/hooks/useRoutePM25';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
 import { Badge } from '@/components/ui/badge';
@@ -14,15 +13,26 @@ import { supabase } from '@/integrations/supabase/client';
 import { AQIHeatmapLayer } from './AQIHeatmapLayer';
 import { ColorCodedRouteLayer } from './ColorCodedRouteLayer';
 import { RouteComparisonPanel } from './RouteComparisonPanel';
+import { SmartLocationSearch } from './SmartLocationSearch';
 import { DiseaseProfile } from '@/engine/HealthRiskEngine';
+import { getPosition } from '@/utils/geolocation';
+import { cn } from '@/lib/utils';
 
 export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; currentLng: number }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const userMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [destination, setDestination] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<{
+    name: string;
+    lat: number;
+    lng: number;
+    fullAddress: string;
+  } | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [isLocating, setIsLocating] = useState(false);
+  const [liveLocation, setLiveLocation] = useState({ lat: currentLat, lng: currentLng });
   const { routes, recommendedRoute, loading, analyzeRoutes } = useRoutePM25();
   const { profile } = useHealthProfile();
 
@@ -48,6 +58,29 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
     (c: string) => ['asthma', 'copd', 'allergy', 'sinusitis'].includes(c.toLowerCase())
   ) || profile?.dustSensitivity === 'high';
 
+  // Get live location
+  const updateLiveLocation = useCallback(async () => {
+    setIsLocating(true);
+    try {
+      const position = await getPosition({ enableHighAccuracy: true, timeout: 15000 });
+      setLiveLocation({ lat: position.latitude, lng: position.longitude });
+      
+      // Update user marker position
+      if (userMarker.current && map.current) {
+        userMarker.current.setLngLat([position.longitude, position.latitude]);
+        map.current.flyTo({
+          center: [position.longitude, position.latitude],
+          zoom: 14,
+          duration: 1000,
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
@@ -71,40 +104,47 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Current location marker with pulse animation
+        // Current location marker with enhanced styling
         const el = document.createElement('div');
         el.innerHTML = `
           <div style="position: relative;">
             <div style="
-              width: 20px;
-              height: 20px;
-              background: #3b82f6;
+              width: 22px;
+              height: 22px;
+              background: linear-gradient(135deg, hsl(180, 70%, 50%), hsl(160, 60%, 45%));
               border: 3px solid white;
               border-radius: 50%;
-              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+              box-shadow: 0 2px 12px hsla(180, 70%, 50%, 0.5);
             "></div>
             <div style="
               position: absolute;
-              top: -5px;
-              left: -5px;
-              width: 30px;
-              height: 30px;
-              background: rgba(59, 130, 246, 0.3);
+              top: -6px;
+              left: -6px;
+              width: 34px;
+              height: 34px;
+              background: hsla(180, 70%, 50%, 0.25);
               border-radius: 50%;
-              animation: pulse 2s infinite;
+              animation: locationPulse 2s ease-out infinite;
             "></div>
           </div>
           <style>
-            @keyframes pulse {
+            @keyframes locationPulse {
               0% { transform: scale(1); opacity: 1; }
-              100% { transform: scale(2); opacity: 0; }
+              100% { transform: scale(2.5); opacity: 0; }
             }
           </style>
         `;
 
-        new mapboxgl.Marker(el)
+        userMarker.current = new mapboxgl.Marker(el)
           .setLngLat([currentLng, currentLat])
-          .setPopup(new mapboxgl.Popup().setHTML('<p><strong>ตำแหน่งปัจจุบัน</strong></p>'))
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
+            <div style="text-align: center; padding: 4px;">
+              <strong style="color: hsl(180, 70%, 40%);">📍 ตำแหน่งของคุณ</strong>
+              <p style="margin: 4px 0 0; font-size: 12px; color: #666;">
+                ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}
+              </p>
+            </div>
+          `))
           .addTo(map.current);
 
         map.current.on('load', () => {
@@ -125,19 +165,28 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
 
   // Route rendering is now handled by ColorCodedRouteLayer component
 
-  const handleSearchDestination = async () => {
-    if (!destination) return;
-
+  // Handle location selection from smart search
+  const handleLocationSelect = useCallback(async (location: {
+    name: string;
+    lat: number;
+    lng: number;
+    fullAddress: string;
+  }) => {
+    setSelectedLocation(location);
+    
+    // Analyze routes to selected destination
     await analyzeRoutes({
-      startLat: currentLat,
-      startLng: currentLng,
-      destination: destination,
+      startLat: liveLocation.lat,
+      startLng: liveLocation.lng,
+      endLat: location.lat,
+      endLng: location.lng,
+      destination: location.name,
       hasRespiratoryCondition,
       chronicConditions: profile?.chronicConditions || [],
     });
     
     setSelectedRouteIndex(0);
-  };
+  }, [analyzeRoutes, liveLocation, hasRespiratoryCondition, profile]);
 
   const recommendedIndex = recommendedRoute 
     ? routes.findIndex(r => r.routeIndex === recommendedRoute.routeIndex)
@@ -145,42 +194,64 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
 
   return (
     <div className="space-y-4">
-      <Card className="shadow-card">
+      <Card className={cn("shadow-card overflow-hidden", "glass-card")}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Navigation className="h-5 w-5 text-primary" />
-              <CardTitle>เส้นทางฝุ่นต่ำ Real-time</CardTitle>
+              <CardTitle>เส้นทางสุขภาพอัจฉริยะ</CardTitle>
             </div>
-            {hasRespiratoryCondition && (
-              <Badge variant="destructive" className="text-xs">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                กลุ่มเสี่ยง
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search Input */}
-          <div className="space-y-2">
-            <Label htmlFor="destination">ค้นหาจุดหมายปลายทาง</Label>
-            <div className="flex gap-2">
-              <Input
-                id="destination"
-                placeholder="ใส่ชื่อสถานที่หรือที่อยู่"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearchDestination()}
-              />
-              <Button onClick={handleSearchDestination} disabled={loading || !destination}>
-                {loading ? (
+            <div className="flex items-center gap-2">
+              {hasRespiratoryCondition && (
+                <Badge variant="destructive" className="text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  กลุ่มเสี่ยง
+                </Badge>
+              )}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={updateLiveLocation}
+                disabled={isLocating}
+                className="h-8 w-8 p-0"
+              >
+                {isLocating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <MapPin className="h-4 w-4" />
+                  <LocateFixed className="h-4 w-4" />
                 )}
               </Button>
             </div>
           </div>
+          <CardDescription className="text-xs">
+            ค้นหาเส้นทางที่ปลอดภัยจากฝุ่น PM2.5 ด้วย AI
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Smart Location Search */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">ไปไหน?</Label>
+            <SmartLocationSearch
+              onSelectLocation={handleLocationSelect}
+              currentLat={liveLocation.lat}
+              currentLng={liveLocation.lng}
+              placeholder="ค้นหาสถานที่ เช่น สยาม, เซ็นทรัล..."
+            />
+            {selectedLocation && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
+                <MapPin className="h-3 w-3 text-primary" />
+                <span className="truncate">{selectedLocation.fullAddress}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Loading indicator for route analysis */}
+          {loading && (
+            <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span>กำลังวิเคราะห์เส้นทางที่ดีที่สุด...</span>
+            </div>
+          )}
 
           {/* Map Controls */}
           <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
@@ -208,8 +279,8 @@ export const RouteMap = ({ currentLat, currentLng }: { currentLat: number; curre
           {mapLoaded && (
             <AQIHeatmapLayer
               map={map.current}
-              centerLat={currentLat}
-              centerLng={currentLng}
+              centerLat={liveLocation.lat}
+              centerLng={liveLocation.lng}
               enabled={showHeatmap && routes.length === 0}
             />
           )}

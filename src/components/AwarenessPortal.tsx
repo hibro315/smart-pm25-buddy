@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { HealthOrb } from "./HealthOrb";
+import { AudioWaveform } from "./AudioWaveform";
 import { cn } from "@/lib/utils";
 import { Mic, MicOff, Volume2 } from "lucide-react";
 
@@ -108,6 +109,19 @@ export const AwarenessPortal = ({
           onClick={handleOrbClick}
           className="animate-scale-in"
         />
+
+        {/* Audio Waveform Visualization */}
+        {isConnected && (
+          <div className="w-full max-w-md px-6 animate-fade-in">
+            <AudioWaveform
+              isActive={isConnected}
+              isSpeaking={isSpeaking}
+              isListening={isListening}
+              barCount={40}
+              className="h-20"
+            />
+          </div>
+        )}
 
         {/* Air feeling text - no numbers initially */}
         <div 
