@@ -5,36 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PlaceResult {
-  place_id: string;
-  name: string;
-  vicinity: string;
-  geometry: {
-    location: {
-      lat: number;
-      lng: number;
-    };
+interface PlaceV2 {
+  id: string;
+  displayName?: {
+    text: string;
+    languageCode: string;
+  };
+  formattedAddress?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
   };
   rating?: number;
-  user_ratings_total?: number;
-  opening_hours?: {
-    open_now: boolean;
+  userRatingCount?: number;
+  regularOpeningHours?: {
+    openNow?: boolean;
+    weekdayDescriptions?: string[];
   };
-  types?: string[];
-  photos?: Array<{
-    photo_reference: string;
-  }>;
-}
-
-interface PlaceDetailsResult {
-  formatted_phone_number?: string;
-  international_phone_number?: string;
-  formatted_address?: string;
-  website?: string;
-  opening_hours?: {
-    open_now: boolean;
-    weekday_text?: string[];
-  };
+  internationalPhoneNumber?: string;
+  nationalPhoneNumber?: string;
 }
 
 serve(async (req) => {
@@ -59,80 +48,81 @@ serve(async (req) => {
 
     console.log(`Searching hospitals near: ${latitude}, ${longitude}, radius: ${radius}m`);
 
-    // Search for hospitals using Google Places API
-    const searchUrl = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
-    searchUrl.searchParams.set('location', `${latitude},${longitude}`);
-    searchUrl.searchParams.set('radius', radius.toString());
-    searchUrl.searchParams.set('type', 'hospital');
-    searchUrl.searchParams.set('language', 'th');
-    searchUrl.searchParams.set('key', GOOGLE_PLACES_API_KEY);
-
-    console.log('Fetching from Google Places API...');
+    // Use Google Places API (New) - Nearby Search
+    const searchUrl = 'https://places.googleapis.com/v1/places:searchNearby';
     
-    const searchResponse = await fetch(searchUrl.toString());
+    const requestBody = {
+      includedTypes: ['hospital'],
+      maxResultCount: 10,
+      locationRestriction: {
+        circle: {
+          center: {
+            latitude: latitude,
+            longitude: longitude,
+          },
+          radius: radius,
+        },
+      },
+      languageCode: 'th',
+    };
+
+    console.log('Fetching from Google Places API (New)...');
+    
+    const searchResponse = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.regularOpeningHours,places.internationalPhoneNumber,places.nationalPhoneNumber',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
     const searchData = await searchResponse.json();
 
-    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', searchData);
-      throw new Error(`Google Places API error: ${searchData.status}`);
+    if (searchData.error) {
+      console.error('Google Places API (New) error:', searchData.error);
+      throw new Error(`Google Places API error: ${searchData.error.message || searchData.error.status}`);
     }
 
-    console.log(`Found ${searchData.results?.length || 0} hospitals`);
+    const places: PlaceV2[] = searchData.places || [];
+    console.log(`Found ${places.length} hospitals`);
 
     // Process results
-    const hospitals = await Promise.all(
-      (searchData.results || []).slice(0, 10).map(async (place: PlaceResult) => {
-        // Get place details for phone number
-        let phoneNumber = '';
-        let address = place.vicinity || '';
-        let isOpen24h = false;
-        
-        try {
-          const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-          detailsUrl.searchParams.set('place_id', place.place_id);
-          detailsUrl.searchParams.set('fields', 'formatted_phone_number,international_phone_number,formatted_address,opening_hours');
-          detailsUrl.searchParams.set('language', 'th');
-          detailsUrl.searchParams.set('key', GOOGLE_PLACES_API_KEY);
+    const hospitals = places.map((place: PlaceV2) => {
+      const distance = calculateDistance(
+        latitude, 
+        longitude, 
+        place.location?.latitude || 0, 
+        place.location?.longitude || 0
+      );
 
-          const detailsResponse = await fetch(detailsUrl.toString());
-          const detailsData = await detailsResponse.json();
+      // Check if open 24 hours
+      let isOpen24h = false;
+      if (place.regularOpeningHours?.weekdayDescriptions) {
+        isOpen24h = place.regularOpeningHours.weekdayDescriptions.some(
+          (text: string) => text.includes('24') || text.includes('เปิดตลอด')
+        );
+      }
 
-          if (detailsData.status === 'OK' && detailsData.result) {
-            const details: PlaceDetailsResult = detailsData.result;
-            phoneNumber = details.formatted_phone_number || details.international_phone_number || '';
-            address = details.formatted_address || place.vicinity || '';
-            
-            // Check if open 24 hours (simplified check)
-            if (details.opening_hours?.weekday_text) {
-              isOpen24h = details.opening_hours.weekday_text.some(
-                (text: string) => text.includes('24') || text.includes('เปิดตลอด')
-              );
-            }
-          }
-        } catch (detailError) {
-          console.log(`Failed to get details for ${place.name}:`, detailError);
-        }
+      const phoneNumber = place.nationalPhoneNumber || place.internationalPhoneNumber || '';
 
-        // Calculate distance
-        const distance = calculateDistance(latitude, longitude, place.geometry.location.lat, place.geometry.location.lng);
-
-        return {
-          id: place.place_id,
-          name: place.name,
-          distance: distance,
-          distanceText: formatDistance(distance),
-          phone: phoneNumber,
-          emergencyPhone: phoneNumber ? phoneNumber : undefined,
-          address: address,
-          specialties: ['โรงพยาบาล'],
-          rating: place.rating || undefined,
-          isOpen24h: isOpen24h || (place.opening_hours?.open_now ?? true),
-          lat: place.geometry.location.lat,
-          lng: place.geometry.location.lng,
-          isOpenNow: place.opening_hours?.open_now ?? undefined,
-        };
-      })
-    );
+      return {
+        id: place.id,
+        name: place.displayName?.text || 'โรงพยาบาล',
+        distance: distance,
+        distanceText: formatDistance(distance),
+        phone: phoneNumber,
+        emergencyPhone: phoneNumber || undefined,
+        address: place.formattedAddress || '',
+        specialties: ['โรงพยาบาล'],
+        rating: place.rating || undefined,
+        isOpen24h: isOpen24h || (place.regularOpeningHours?.openNow ?? true),
+        lat: place.location?.latitude || 0,
+        lng: place.location?.longitude || 0,
+        isOpenNow: place.regularOpeningHours?.openNow ?? undefined,
+      };
+    });
 
     // Sort by distance
     hospitals.sort((a, b) => a.distance - b.distance);
@@ -142,7 +132,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         hospitals,
-        source: 'google_places',
+        source: 'google_places_v2',
         timestamp: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
