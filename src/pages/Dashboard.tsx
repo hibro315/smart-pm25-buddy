@@ -12,12 +12,13 @@ import { EnhancedHealthProfileForm } from "@/components/EnhancedHealthProfileFor
 import { UserMenu } from "@/components/UserMenu";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { DashboardLoadingSkeleton } from "@/components/DashboardLoadingSkeleton";
+import { AdaptiveDashboard } from "@/components/AdaptiveDashboard";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useDailySymptoms } from "@/hooks/useDailySymptoms";
 import { Activity, TrendingUp, History, User } from "lucide-react";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const Dashboard = () => {
   const { profile, loading: profileLoading } = useHealthProfile();
@@ -92,10 +93,17 @@ const Dashboard = () => {
     return <DashboardLoadingSkeleton />;
   }
 
+  const currentPhri = phriResult?.phri || 0;
+
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <AdaptiveDashboard 
+      phri={currentPhri}
+      showStateIndicator={true}
+      enableAnimations={true}
+      className="pb-24"
+    >
       {/* Header */}
-      <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-card/80 backdrop-blur-sm border-b sticky top-16 z-10 shadow-sm">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-display font-bold">Health Dashboard</h1>
@@ -119,9 +127,9 @@ const Dashboard = () => {
         {/* DORA Action Buttons */}
         <DashboardActionButtons 
           riskLevel={
-            phriResult?.phri < 2.5 ? 'low' : 
-            phriResult?.phri < 5 ? 'moderate' : 
-            phriResult?.phri < 7.5 ? 'high' : 'severe'
+            currentPhri < 2.5 ? 'low' : 
+            currentPhri < 5 ? 'moderate' : 
+            currentPhri < 7.5 ? 'high' : 'severe'
           } 
         />
 
@@ -169,7 +177,7 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </AdaptiveDashboard>
   );
 };
 
