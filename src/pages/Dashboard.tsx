@@ -19,9 +19,10 @@ import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useDailySymptoms } from "@/hooks/useDailySymptoms";
-import { Activity, TrendingUp, History, User, Sparkles, Shield } from "lucide-react";
+import { Activity, TrendingUp, History, User, Sparkles, Shield, Pencil } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const { profile, loading: profileLoading } = useHealthProfile();
@@ -301,7 +302,39 @@ const Dashboard = () => {
             </TabsContent>
 
             <TabsContent value="profile" className="space-y-6 mt-0">
-              <EnhancedHealthProfileForm />
+              {/* Edit Profile Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10 border border-primary/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <User className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">โปรไฟล์สุขภาพ</h3>
+                    <p className="text-sm text-muted-foreground">แก้ไขข้อมูลเพื่อรับคำแนะนำที่เหมาะสม</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-primary/30 hover:bg-primary/10 hover:border-primary"
+                  onClick={() => {
+                    const form = document.querySelector('[data-profile-form]');
+                    if (form) {
+                      form.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <Pencil className="w-4 h-4" />
+                  แก้ไข
+                </Button>
+              </motion.div>
+              <div data-profile-form>
+                <EnhancedHealthProfileForm />
+              </div>
             </TabsContent>
           </Tabs>
         </motion.div>
