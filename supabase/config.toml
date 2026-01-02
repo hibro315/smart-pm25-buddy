@@ -36,3 +36,6 @@ verify_jwt = false
 
 [functions.get-air-quality]
 verify_jwt = false
+
+[functions.elevenlabs-conversation-token]
+verify_jwt = true
