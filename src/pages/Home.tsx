@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useComprehensivePHRI } from "@/hooks/useComprehensivePHRI";
+import { useLanguage } from "@/contexts/LanguageContext";
 import VoiceHealthChatNew from "@/components/VoiceHealthChatNew";
 import { HealthOrb } from "@/components/HealthOrb";
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,7 @@ const Home = () => {
   const { data, loading, refreshing } = useAirQualityWithFallback();
   const { profile } = useHealthProfile();
   const { calculateQuickPHRI } = useComprehensivePHRI();
+  const { t } = useLanguage();
   const [showVoiceMode, setShowVoiceMode] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -66,12 +68,12 @@ const Home = () => {
   );
 
   const getAirFeeling = (): string => {
-    if (pm25 <= 15) return "อากาศสะอาดบริสุทธิ์";
-    if (pm25 <= 25) return "อากาศดี";
-    if (pm25 <= 37.5) return "อากาศปานกลาง";
-    if (pm25 <= 50) return "เริ่มมีมลพิษ";
-    if (pm25 <= 75) return "มลพิษสูง";
-    return "อากาศไม่ดีต่อสุขภาพ";
+    if (pm25 <= 15) return t('home.air.excellent');
+    if (pm25 <= 25) return t('home.air.good');
+    if (pm25 <= 37.5) return t('home.air.moderate');
+    if (pm25 <= 50) return t('home.air.unhealthy.sensitive');
+    if (pm25 <= 75) return t('home.air.unhealthy');
+    return t('home.air.hazardous');
   };
 
   return (
@@ -114,12 +116,12 @@ const Home = () => {
           <div className="flex items-center justify-center gap-2 mb-2">
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-              Smart PM2.5
+              {t('home.brand')}
             </span>
             <Sparkles className="w-4 h-4 text-primary" />
           </div>
           <h1 className="text-2xl font-display font-medium text-foreground">
-            Personal Health Intelligence
+            {t('home.subtitle')}
           </h1>
         </div>
 
@@ -143,14 +145,14 @@ const Home = () => {
             style={{ animationDelay: "1s" }}
           >
             <Mic className="w-4 h-4 text-primary" />
-            <span className="text-sm text-muted-foreground">แตะเพื่อพูดคุย</span>
+            <span className="text-sm text-muted-foreground">{t('home.tap.speak')}</span>
           </div>
         </div>
 
         {/* Air Quality Feeling */}
         <div className="text-center space-y-2 mb-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
           <h2 className="text-xl font-display font-medium text-foreground">
-            {loading ? "กำลังรับรู้..." : getAirFeeling()}
+            {loading ? t('home.loading') : getAirFeeling()}
           </h2>
           {data?.location && (
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
@@ -168,17 +170,17 @@ const Home = () => {
           >
             <div className="glass-card p-4 text-center hover-lift">
               <Wind className="w-5 h-5 text-primary mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground mb-1">PM2.5</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('home.pm25')}</p>
               <p className="text-lg font-display font-semibold">{pm25.toFixed(0)}</p>
             </div>
             <div className="glass-card p-4 text-center hover-lift">
               <Thermometer className="w-5 h-5 text-primary mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground mb-1">อุณหภูมิ</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('home.temperature')}</p>
               <p className="text-lg font-display font-semibold">{data?.temperature || "-"}°</p>
             </div>
             <div className="glass-card p-4 text-center hover-lift">
               <Droplets className="w-5 h-5 text-primary mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground mb-1">ความชื้น</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('home.humidity')}</p>
               <p className="text-lg font-display font-semibold">{data?.humidity || "-"}%</p>
             </div>
           </div>
@@ -193,7 +195,7 @@ const Home = () => {
             <div className="flex items-center gap-4">
               <Shield className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-xs text-muted-foreground">ความเสี่ยงส่วนบุคคล</p>
+                <p className="text-xs text-muted-foreground">{t('home.personal.risk')}</p>
                 <p className="text-lg font-display font-semibold">
                   {phriScore.toFixed(1)} / 10
                 </p>
@@ -206,7 +208,7 @@ const Home = () => {
         {showDetails && (
           <div className="w-full max-w-md space-y-3 animate-fade-in" style={{ animationDelay: "1s" }}>
             <h3 className="text-sm font-medium text-muted-foreground text-center mb-4">
-              สำรวจเพิ่มเติม
+              {t('home.explore.more')}
             </h3>
 
             <Link to="/dashboard">
@@ -217,8 +219,8 @@ const Home = () => {
                       <Activity className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">Health Dashboard</h4>
-                      <p className="text-xs text-muted-foreground">สถิติและแนวโน้มสุขภาพ</p>
+                      <h4 className="font-medium text-sm">{t('home.health.dashboard')}</h4>
+                      <p className="text-xs text-muted-foreground">{t('home.health.dashboard.desc')}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -234,8 +236,8 @@ const Home = () => {
                       <MapPin className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">Environment Map</h4>
-                      <p className="text-xs text-muted-foreground">แผนที่คุณภาพอากาศ</p>
+                      <h4 className="font-medium text-sm">{t('home.environment.map')}</h4>
+                      <p className="text-xs text-muted-foreground">{t('home.environment.map.desc')}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -251,8 +253,8 @@ const Home = () => {
                       <MessageSquare className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">AI Consultant</h4>
-                      <p className="text-xs text-muted-foreground">ที่ปรึกษาสุขภาพ AI</p>
+                      <h4 className="font-medium text-sm">{t('home.ai.consultant')}</h4>
+                      <p className="text-xs text-muted-foreground">{t('home.ai.consultant.desc')}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -268,8 +270,8 @@ const Home = () => {
                       <Bell className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">Alerts & Settings</h4>
-                      <p className="text-xs text-muted-foreground">การแจ้งเตือนและตั้งค่า</p>
+                      <h4 className="font-medium text-sm">{t('home.alerts.settings')}</h4>
+                      <p className="text-xs text-muted-foreground">{t('home.alerts.settings.desc')}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />

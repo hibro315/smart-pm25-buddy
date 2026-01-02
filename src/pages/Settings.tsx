@@ -33,7 +33,7 @@ export default function Settings() {
     await supabase.auth.signOut();
     toast({
       title: t('common.success'),
-      description: language === 'th' ? 'ออกจากระบบสำเร็จ' : language === 'en' ? 'Logged out successfully' : '退出成功',
+      description: t('settings.logout.success'),
     });
     navigate('/auth');
   };
@@ -74,7 +74,7 @@ export default function Settings() {
           <div>
             <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              {language === 'th' ? 'ปรับแต่งการใช้งาน' : language === 'en' ? 'Customize your experience' : '自定义您的体验'}
+              {t('settings.subtitle')}
             </p>
           </div>
         </motion.div>
@@ -95,7 +95,7 @@ export default function Settings() {
               <div>
                 <h2 className="font-semibold">{t('settings.language')}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {language === 'th' ? 'เลือกภาษาที่ต้องการ' : language === 'en' ? 'Select preferred language' : '选择首选语言'}
+                  {t('settings.language.select')}
                 </p>
               </div>
             </div>
