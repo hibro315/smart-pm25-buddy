@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
+import { WelcomeAnimation } from '@/components/WelcomeAnimation';
 import { Heart, User, Activity, Wind, ChevronRight, ChevronLeft, Sparkles, Shield } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -31,9 +31,10 @@ const steps = [
 ];
 
 export default function ProfileSetup() {
-  const navigate = useNavigate();
   const { saveProfile, saving } = useHealthProfile();
   const [currentStep, setCurrentStep] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [savedName, setSavedName] = useState('');
   
   // Form state
   const [name, setName] = useState('');
@@ -108,13 +109,13 @@ export default function ProfileSetup() {
     });
 
     if (success) {
-      toast({
-        title: '🎉 ยินดีต้อนรับ!',
-        description: 'โปรไฟล์สุขภาพของคุณถูกบันทึกเรียบร้อยแล้ว',
-      });
-      // Force reload to ensure ProtectedRoute picks up the new profile
-      window.location.href = '/';
+      setSavedName(name || 'ผู้ใช้');
+      setShowWelcome(true);
     }
+  };
+
+  const handleWelcomeComplete = () => {
+    window.location.href = '/';
   };
 
   const isStepValid = () => {
@@ -133,7 +134,13 @@ export default function ProfileSetup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+    <>
+      <WelcomeAnimation 
+        show={showWelcome} 
+        userName={savedName}
+        onComplete={handleWelcomeComplete}
+      />
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
       {/* Ambient Background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" />
@@ -659,5 +666,6 @@ export default function ProfileSetup() {
         </motion.p>
       </div>
     </div>
+    </>
   );
 }
