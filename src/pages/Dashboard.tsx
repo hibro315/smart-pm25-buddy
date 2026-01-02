@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnhancedPHRIPanel } from "@/components/EnhancedPHRIPanel";
 import { DashboardActionButtons } from "@/components/DashboardActionButtons";
+import { DecisionBlock } from "@/components/DecisionBlock";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
@@ -13,6 +14,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { DashboardLoadingSkeleton } from "@/components/DashboardLoadingSkeleton";
 import { AdaptiveDashboard } from "@/components/AdaptiveDashboard";
+import type { DecisionBlockData } from "@/components/DecisionBlock";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
@@ -26,6 +28,7 @@ const Dashboard = () => {
   const { data, loading: airQualityLoading } = useAirQualityWithFallback();
   const { todaySymptoms, getSymptomScore, loading: symptomsLoading } = useDailySymptoms();
   const [phriResult, setPhriResult] = useState<any>(undefined);
+  const [decisionData, setDecisionData] = useState<DecisionBlockData | null>(null);
   const [hasSavedToday, setHasSavedToday] = useState(false);
 
   // Memoize symptom score calculation
@@ -76,6 +79,62 @@ const Dashboard = () => {
 
       const result = calculateEnhancedPHRI(input);
       setPhriResult(result);
+
+      // Calculate decision data for DecisionBlock
+      const hasRespiratoryCondition = (profile.chronicConditions || []).some(c => 
+        c.toLowerCase().includes('asthma') || c.toLowerCase().includes('copd')
+      );
+      
+      // Determine risk level from PM2.5
+      const pm25 = data.pm25;
+      let riskLevel: 'safe' | 'caution' | 'warning' | 'danger' = 'safe';
+      let riskScore = 0;
+      
+      if (hasRespiratoryCondition) {
+        if (pm25 >= 100) { riskLevel = 'danger'; riskScore = 90; }
+        else if (pm25 >= 50) { riskLevel = 'warning'; riskScore = 70; }
+        else if (pm25 >= 25) { riskLevel = 'caution'; riskScore = 45; }
+        else { riskLevel = 'safe'; riskScore = 20; }
+      } else {
+        if (pm25 >= 150) { riskLevel = 'danger'; riskScore = 85; }
+        else if (pm25 >= 75) { riskLevel = 'warning'; riskScore = 60; }
+        else if (pm25 >= 35) { riskLevel = 'caution'; riskScore = 35; }
+        else { riskLevel = 'safe'; riskScore = 15; }
+      }
+      
+      const decisions: Record<typeof riskLevel, string> = {
+        safe: 'ทำกิจกรรมกลางแจ้งได้ตามปกติ',
+        caution: 'จำกัดกิจกรรมกลางแจ้ง ใส่หน้ากากหากออกนอกอาคาร',
+        warning: 'หลีกเลี่ยงกิจกรรมกลางแจ้ง อยู่ในอาคารที่มีเครื่องฟอกอากาศ',
+        danger: 'อยู่ในอาคารปิด หลีกเลี่ยงออกนอกบ้านโดยเด็ดขาด',
+      };
+      
+      setDecisionData({
+        riskLevel,
+        riskScore,
+        primaryDecision: decisions[riskLevel],
+        supportingFacts: [
+          `PM2.5: ${pm25} µg/m³`,
+          `AQI: ${data.aqi}`,
+          hasRespiratoryCondition ? 'มีโรคทางเดินหายใจ - ปรับเกณฑ์เข้มงวดขึ้น' : '',
+        ].filter(Boolean),
+        options: [
+          {
+            id: 'mask',
+            action: 'สวมหน้ากาก N95',
+            riskReduction: 80,
+            feasibility: 'easy' as const,
+            timeToImplement: 'ทันที',
+          },
+          {
+            id: 'indoor',
+            action: 'อยู่ในอาคาร',
+            riskReduction: 60,
+            feasibility: 'easy' as const,
+            timeToImplement: 'ทันที',
+          },
+        ],
+      });
 
       // Auto-save PHRI and AQI data to health_logs once per day
       if (!hasSavedToday && data.pm25 > 0) {
@@ -132,6 +191,11 @@ const Dashboard = () => {
             currentPhri < 7.5 ? 'high' : 'severe'
           } 
         />
+
+        {/* Real-time Health Decision Block */}
+        {decisionData && (
+          <DecisionBlock data={decisionData} compact />
+        )}
 
         {/* Enhanced Symptom Log */}
         <EnhancedSymptomLog />
