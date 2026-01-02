@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 export type Language = 'th' | 'en' | 'zh';
+
+const LANGUAGE_STORAGE_KEY = 'airguard_language';
 
 interface LanguageContextType {
   language: Language;
@@ -450,21 +452,34 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('app-language');
-    return (saved as Language) || 'th';
+    try {
+      const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (saved && ['th', 'en', 'zh'].includes(saved)) {
+        return saved as Language;
+      }
+    } catch {
+      // localStorage not available
+    }
+    return 'th';
   });
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('app-language', lang);
-  };
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    } catch {
+      // localStorage not available
+    }
+  }, []);
 
-  const t = (key: string): string => {
-    return translations[language][key] || key;
-  };
+  const t = useCallback((key: string): string => {
+    return translations[language][key] || translations['en'][key] || key;
+  }, [language]);
 
   useEffect(() => {
     document.documentElement.lang = language;
+    // Also set HTML dir for RTL languages if needed in future
+    document.documentElement.setAttribute('data-language', language);
   }, [language]);
 
   return (

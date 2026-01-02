@@ -46,21 +46,43 @@ class ThaiTTSService {
 
   private initVoices() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      // Load voices
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
-        // Find Thai voice
-        this.thaiVoice = voices.find(v => 
-          v.lang.includes('th') || 
-          v.name.toLowerCase().includes('thai')
-        ) || null;
         
-        // Fallback to any available voice
+        // Priority order for Thai voices (best quality first)
+        const thaiVoicePriority = [
+          // iOS Siri voices (highest quality)
+          (v: SpeechSynthesisVoice) => v.name.includes('Siri') && v.lang.includes('th'),
+          (v: SpeechSynthesisVoice) => v.name.includes('Kanya') && v.lang.includes('th'),
+          // Google voices (good quality)
+          (v: SpeechSynthesisVoice) => v.name.includes('Google') && v.lang.includes('th'),
+          // Microsoft voices
+          (v: SpeechSynthesisVoice) => v.name.includes('Microsoft') && v.lang.includes('th'),
+          // Any Thai voice
+          (v: SpeechSynthesisVoice) => v.lang.includes('th-TH'),
+          (v: SpeechSynthesisVoice) => v.lang.includes('th'),
+          // Fallback to any female voice (usually sounds better)
+          (v: SpeechSynthesisVoice) => v.name.toLowerCase().includes('female'),
+        ];
+
+        // Find the best available voice
+        for (const priorityCheck of thaiVoicePriority) {
+          const found = voices.find(priorityCheck);
+          if (found) {
+            this.thaiVoice = found;
+            console.log('Selected TTS voice:', found.name, found.lang);
+            break;
+          }
+        }
+        
+        // Fallback to first available voice
         if (!this.thaiVoice && voices.length > 0) {
           this.thaiVoice = voices[0];
+          console.log('Fallback TTS voice:', voices[0].name);
         }
       };
 
+      // Chrome loads voices asynchronously
       loadVoices();
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
