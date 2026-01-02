@@ -8,15 +8,16 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Geolocation } from '@capacitor/geolocation';
 import { useAirQualityWithFallback } from '@/hooks/useAirQualityWithFallback';
 import { useRoutePM25 } from '@/hooks/useRoutePM25';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { HealthNavigationMap } from '@/components/navigation/HealthNavigationMap';
 import { RouteRecommendationPanel } from '@/components/navigation/RouteRecommendationPanel';
 import { TravelModeRecommender } from '@/components/navigation/TravelModeRecommender';
 import { SmartLocationSearch } from '@/components/SmartLocationSearch';
+import { LocationPermissionCard } from '@/components/LocationPermissionCard';
 import { UserMenu } from '@/components/UserMenu';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +32,20 @@ const Map = () => {
   const { data: aqiData, refreshing } = useAirQualityWithFallback();
   const { routes, recommendedRoute, loading, analyzeRoutes } = useRoutePM25();
   const { profile } = useHealthProfile();
+  const {
+    permissionStatus,
+    location,
+    loading: locationLoading,
+    error: locationError,
+    requestLocationPermission,
+    refreshLocation
+  } = useLocationPermission();
   
-  const [currentPosition, setCurrentPosition] = useState({ lat: 13.7563, lng: 100.5018 });
+  // Use detected location or default to Bangkok
+  const currentPosition = location 
+    ? { lat: location.lat, lng: location.lng }
+    : { lat: 13.7563, lng: 100.5018 };
+    
   const [selectedLocation, setSelectedLocation] = useState<{
     name: string;
     lat: number;
@@ -41,22 +54,6 @@ const Map = () => {
   } | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [travelMode, setTravelMode] = useState<TravelMode>('car');
-
-  // Get current position
-  useEffect(() => {
-    const getCurrentPos = async () => {
-      try {
-        const position = await Geolocation.getCurrentPosition();
-        setCurrentPosition({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-      } catch (error) {
-        console.error('Error getting position:', error);
-      }
-    };
-    getCurrentPos();
-  }, []);
 
   // Determine disease profile
   const getDiseaseProfile = useCallback((): DiseaseProfile => {
@@ -163,6 +160,16 @@ const Map = () => {
       </div>
 
       <div className="container mx-auto px-4 py-4 space-y-4 relative z-10">
+        {/* Location Permission Card */}
+        <LocationPermissionCard
+          permissionStatus={permissionStatus}
+          location={location}
+          loading={locationLoading}
+          error={locationError}
+          onRequestPermission={requestLocationPermission}
+          onRefresh={refreshLocation}
+        />
+
         {/* Current AQI Status Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
