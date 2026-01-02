@@ -1,29 +1,44 @@
-import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useMemo } from "react";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
-import { AirQualityCard } from "@/components/AirQualityCard";
-import { AlertNotification } from "@/components/AlertNotification";
+import { useComprehensivePHRI } from "@/hooks/useComprehensivePHRI";
+import { VoiceHealthInterface } from "@/components/VoiceHealthInterface";
+import { HealthOrb } from "@/components/HealthOrb";
+import { Card } from "@/components/ui/card";
 import { UserMenu } from "@/components/UserMenu";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
-import { EnhancedNearbyHospitals } from "@/components/EnhancedNearbyHospitals";
-import { Activity, MapPin, MessageSquare, Bell, TrendingUp, Wind, Droplets, Thermometer, ChevronRight, Shield, Hospital } from "lucide-react";
+import { 
+  Activity, MapPin, MessageSquare, Bell, 
+  Wind, Droplets, Thermometer, ChevronRight, 
+  Shield, Mic, Sparkles
+} from "lucide-react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 const Home = () => {
-  const { data, loading, refreshing, refetch } = useAirQualityWithFallback();
+  const { data, loading, refreshing } = useAirQualityWithFallback();
   const { profile } = useHealthProfile();
-  const [greeting, setGreeting] = useState("");
+  const { calculateQuickPHRI } = useComprehensivePHRI();
+  const [showVoiceMode, setShowVoiceMode] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
+  const pm25 = data?.pm25 || 0;
+  const aqi = data?.aqi || 0;
+
+  // Calculate PHRI score
+  const phriScore = useMemo(() => {
+    if (!pm25 || !aqi) return undefined;
+    const result = calculateQuickPHRI(pm25, aqi, 60);
+    return (result as { phri?: number }).phri ?? 5;
+  }, [pm25, aqi, calculateQuickPHRI]);
+
+  // Gradually reveal details
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("สวัสดีตอนเช้า");
-    else if (hour < 18) setGreeting("สวัสดีตอนบ่าย");
-    else setGreeting("สวัสดีตอนเย็น");
+    const timer = setTimeout(() => setShowDetails(true), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Cache air quality data for other pages to use
+  // Cache air quality data for other pages
   useEffect(() => {
     if (data && data.pm25) {
       const cacheData = {
@@ -38,226 +53,241 @@ const Home = () => {
     }
   }, [data]);
 
-  const pm25 = data?.pm25 || 0;
-  const aqi = data?.aqi || 0;
+  // If voice mode is active, show full-screen voice interface
+  if (showVoiceMode) {
+    return (
+      <div className="fixed inset-0 z-50">
+        <button
+          onClick={() => setShowVoiceMode(false)}
+          className="absolute top-4 left-4 z-50 glass-card px-4 py-2 text-sm hover-lift"
+        >
+          ← กลับ
+        </button>
+        <VoiceHealthInterface
+          pm25={data?.pm25}
+          aqi={data?.aqi}
+          phri={phriScore}
+          temperature={data?.temperature}
+          humidity={data?.humidity}
+          location={data?.location}
+        />
+      </div>
+    );
+  }
 
-  const getAQIStatus = () => {
-    if (aqi <= 50) return { text: "ดีเยี่ยม", color: "text-success", bg: "bg-success/10" };
-    if (aqi <= 100) return { text: "ปานกลาง", color: "text-warning", bg: "bg-warning/10" };
-    return { text: "ไม่ดี", color: "text-destructive", bg: "bg-destructive/10" };
+  const getAirFeeling = (): string => {
+    if (pm25 <= 15) return "อากาศสะอาดบริสุทธิ์";
+    if (pm25 <= 25) return "อากาศดี";
+    if (pm25 <= 37.5) return "อากาศปานกลาง";
+    if (pm25 <= 50) return "เริ่มมีมลพิษ";
+    if (pm25 <= 75) return "มลพิษสูง";
+    return "อากาศไม่ดีต่อสุขภาพ";
   };
 
-  const status = getAQIStatus();
-
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-primary text-white overflow-hidden">
-        {/* Status Badges */}
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+    <div className="min-h-screen bg-ambient pb-24 overflow-hidden">
+      {/* Ambient background particles */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-64 h-64 rounded-full bg-glow-pale/5 blur-3xl animate-float"
+            style={{
+              left: `${20 + i * 20}%`,
+              top: `${10 + (i % 3) * 30}%`,
+              animationDelay: `${i * 2}s`,
+              animationDuration: `${10 + i * 2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Header - minimal, floating */}
+      <div className="relative z-10">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
           <OnlineStatusBadge compact showConnectionType />
           <UserMenu />
         </div>
+        
         {refreshing && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-white/20 z-10">
-            <div className="h-full bg-white animate-pulse w-1/2" />
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary/20">
+            <div className="h-full bg-primary/50 animate-pulse w-1/2" />
           </div>
         )}
-        <div className="absolute inset-0 opacity-10">{/* ... keep existing code */}
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-          }} />
-        </div>
+      </div>
+
+      {/* Main Content - Awareness Portal Style */}
+      <div className="relative z-10 flex flex-col items-center pt-16 px-6">
         
-        <div className="relative container mx-auto px-6 py-8">
-          <div className="space-y-3">
-            <p className="text-white/90 text-sm font-medium">{greeting}</p>
-            <h1 className="text-3xl font-display font-bold">
-              Smart Air Quality
-            </h1>
-            <p className="text-white/80 text-sm">
-              ระบบเฝ้าระวังคุณภาพอากาศเพื่อสุขภาพที่ดี
-            </p>
+        {/* Brand */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              Smart PM2.5
+            </span>
+            <Sparkles className="w-4 h-4 text-primary" />
           </div>
+          <h1 className="text-2xl font-display font-medium text-foreground">
+            Personal Health Intelligence
+          </h1>
+        </div>
 
-          {/* Quick Status Card */}
-          <div className="mt-6 bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-elevated">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/70 text-xs mb-1">ค่า AQI ปัจจุบัน</p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">{aqi}</span>
-                  <span className="text-lg text-white/90">{status.text}</span>
-                </div>
-                <p className="text-white/60 text-xs mt-1">
-                  <MapPin className="inline w-3 h-3 mr-1" />
-                  {data?.location || "กำลังโหลด..."}
-                </p>
-              </div>
-              <div className="text-right">
-                <div className={`${status.bg} ${status.color} px-4 py-2 rounded-xl font-semibold text-sm`}>
-                  PM2.5: {pm25}
-                </div>
-              </div>
-            </div>
+        {/* Central Health Orb */}
+        <div className="relative mb-8">
+          <HealthOrb
+            phri={phriScore}
+            pm25={pm25}
+            size="xl"
+            onClick={() => setShowVoiceMode(true)}
+            className="animate-scale-in"
+          />
+          
+          {/* Voice prompt */}
+          <div 
+            className={cn(
+              "absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap",
+              "glass-card px-4 py-2 flex items-center gap-2",
+              "animate-fade-in"
+            )}
+            style={{ animationDelay: "1s" }}
+          >
+            <Mic className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">แตะเพื่อพูดคุย</span>
           </div>
         </div>
-      </div>
 
-      {/* Alert Section */}
-      <div className="container mx-auto px-6 -mt-4">
-        <AlertNotification 
-          pm25={pm25} 
-          location={data?.location || ""}
-          hasHealthConditions={profile !== null && profile.chronicConditions.length > 0}
-        />
-      </div>
-
-      {/* Quick Stats Grid */}
-      <div className="container mx-auto px-6 mt-6">
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-4 shadow-card hover:shadow-elevated transition-all">
-            <Thermometer className="w-6 h-6 text-primary mb-2" />
-            <p className="text-xs text-muted-foreground">อุณหภูมิ</p>
-            <p className="text-lg font-bold">{data?.temperature || "-"}°C</p>
-          </Card>
-          <Card className="p-4 shadow-card hover:shadow-elevated transition-all">
-            <Droplets className="w-6 h-6 text-primary mb-2" />
-            <p className="text-xs text-muted-foreground">ความชื้น</p>
-            <p className="text-lg font-bold">{data?.humidity || "-"}%</p>
-          </Card>
-          <Card className="p-4 shadow-card hover:shadow-elevated transition-all">
-            <Wind className="w-6 h-6 text-primary mb-2" />
-            <p className="text-xs text-muted-foreground">ลม</p>
-            <p className="text-lg font-bold">
-              {data?.wind && typeof data.wind === 'object' ? (data.wind as any)?.speed || "-" : data?.wind || "-"}
+        {/* Air Quality Feeling */}
+        <div className="text-center space-y-2 mb-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+          <h2 className="text-xl font-display font-medium text-foreground">
+            {loading ? "กำลังรับรู้..." : getAirFeeling()}
+          </h2>
+          {data?.location && (
+            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {data.location}
             </p>
-          </Card>
+          )}
         </div>
-      </div>
 
-      {/* Main Features Cards */}
-      <div className="container mx-auto px-6 mt-8 space-y-4">
-        <h2 className="text-lg font-display font-semibold mb-4">คุณสมบัติหลัก</h2>
-
-        <Link to="/dashboard">
-          <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-xl">
-                  <Activity className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-base">Health Dashboard</h3>
-                  <p className="text-sm text-muted-foreground">ดูสถิติสุขภาพและ PHRI ของคุณ</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        {/* Metrics - Glass Cards */}
+        {showDetails && (
+          <div 
+            className="grid grid-cols-3 gap-3 w-full max-w-sm mb-8 animate-fade-in"
+            style={{ animationDelay: "0.5s" }}
+          >
+            <div className="glass-card p-4 text-center hover-lift">
+              <Wind className="w-5 h-5 text-primary mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground mb-1">PM2.5</p>
+              <p className="text-lg font-display font-semibold">{pm25.toFixed(0)}</p>
             </div>
-          </Card>
-        </Link>
-
-        <Link to="/map">
-          <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-xl">
-                  <MapPin className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-base">Air Quality Map</h3>
-                  <p className="text-sm text-muted-foreground">ดูแผนที่คุณภาพอากาศแบบ real-time</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            <div className="glass-card p-4 text-center hover-lift">
+              <Thermometer className="w-5 h-5 text-primary mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground mb-1">อุณหภูมิ</p>
+              <p className="text-lg font-display font-semibold">{data?.temperature || "-"}°</p>
             </div>
-          </Card>
-        </Link>
-
-        <Link to="/chat">
-          <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-xl">
-                  <MessageSquare className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-base">AI Health Assistant</h3>
-                  <p className="text-sm text-muted-foreground">พูดคุยกับ AI เพื่อคำแนะนำสุขภาพ</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            <div className="glass-card p-4 text-center hover-lift">
+              <Droplets className="w-5 h-5 text-primary mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground mb-1">ความชื้น</p>
+              <p className="text-lg font-display font-semibold">{data?.humidity || "-"}%</p>
             </div>
-          </Card>
-        </Link>
+          </div>
+        )}
 
-        <Link to="/notifications">
-          <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3 rounded-xl">
-                  <Bell className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-base">Notifications Center</h3>
-                  <p className="text-sm text-muted-foreground">ตั้งค่าและดูการแจ้งเตือนทั้งหมด</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-          </Card>
-        </Link>
-
-        {/* Hospital Quick Link */}
-        <Card className="p-5 shadow-card hover:shadow-hover transition-all cursor-pointer group border-destructive/20 bg-destructive/5"
-          onClick={() => document.getElementById('hospitals-section')?.scrollIntoView({ behavior: 'smooth' })}
-        >
-          <div className="flex items-center justify-between">
+        {/* Risk Score (if available) */}
+        {showDetails && phriScore !== undefined && (
+          <div 
+            className="glass-card px-6 py-3 mb-8 animate-fade-in"
+            style={{ animationDelay: "0.7s" }}
+          >
             <div className="flex items-center gap-4">
-              <div className="bg-destructive/10 p-3 rounded-xl">
-                <Hospital className="w-6 h-6 text-destructive" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-base">โรงพยาบาลใกล้เคียง</h3>
-                <p className="text-sm text-muted-foreground">ติดต่อโรงพยาบาลโดยตรง</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-destructive transition-colors" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Today's Recommendations */}
-      <div className="container mx-auto px-6 mt-8">
-        <h2 className="text-lg font-display font-semibold mb-4">คำแนะนำวันนี้</h2>
-        <Card className="p-5 shadow-card bg-gradient-card">
-          <div className="flex items-start gap-3">
-            <div className="bg-primary/10 p-2 rounded-lg">
               <Shield className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-sm mb-2">สภาพอากาศวันนี้</h3>
-              {aqi <= 50 ? (
-                <p className="text-sm text-muted-foreground">
-                  คุณภาพอากาศดีเยี่ยม! เหมาะสำหรับกิจกรรมกลางแจ้ง
+              <div>
+                <p className="text-xs text-muted-foreground">ความเสี่ยงส่วนบุคคล</p>
+                <p className="text-lg font-display font-semibold">
+                  {phriScore.toFixed(1)} / 10
                 </p>
-              ) : aqi <= 100 ? (
-                <p className="text-sm text-muted-foreground">
-                  คุณภาพอากาศปานกลาง กลุ่มเสี่ยงควรระมัดระวัง
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  คุณภาพอากาศไม่ดี ควรสวมหน้ากากและลดกิจกรรมกลางแจ้ง
-                </p>
-              )}
+              </div>
             </div>
           </div>
-        </Card>
-      </div>
+        )}
 
-      {/* Nearby Hospitals Section */}
-      <div id="hospitals-section" className="container mx-auto px-6 mt-8">
-        <EnhancedNearbyHospitals />
+        {/* Quick Actions */}
+        {showDetails && (
+          <div className="w-full max-w-md space-y-3 animate-fade-in" style={{ animationDelay: "1s" }}>
+            <h3 className="text-sm font-medium text-muted-foreground text-center mb-4">
+              สำรวจเพิ่มเติม
+            </h3>
+
+            <Link to="/dashboard">
+              <Card className="glass-card p-4 hover-lift cursor-pointer group border-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-primary/10">
+                      <Activity className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">Health Dashboard</h4>
+                      <p className="text-xs text-muted-foreground">สถิติและแนวโน้มสุขภาพ</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </Card>
+            </Link>
+
+            <Link to="/map">
+              <Card className="glass-card p-4 hover-lift cursor-pointer group border-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-primary/10">
+                      <MapPin className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">Environment Map</h4>
+                      <p className="text-xs text-muted-foreground">แผนที่คุณภาพอากาศ</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </Card>
+            </Link>
+
+            <Link to="/chat">
+              <Card className="glass-card p-4 hover-lift cursor-pointer group border-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-primary/10">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">AI Consultant</h4>
+                      <p className="text-xs text-muted-foreground">ที่ปรึกษาสุขภาพ AI</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </Card>
+            </Link>
+
+            <Link to="/notifications">
+              <Card className="glass-card p-4 hover-lift cursor-pointer group border-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-primary/10">
+                      <Bell className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">Alerts & Settings</h4>
+                      <p className="text-xs text-muted-foreground">การแจ้งเตือนและตั้งค่า</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </Card>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
