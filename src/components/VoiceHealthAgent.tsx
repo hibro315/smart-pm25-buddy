@@ -1,9 +1,9 @@
 import { useConversation } from "@elevenlabs/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Mic, MicOff, Volume2, VolumeX, Phone, PhoneOff, Activity, Heart, Wind } from "lucide-react";
+import { Volume2, VolumeX, Phone, PhoneOff, Activity, Heart, Wind } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +15,9 @@ interface VoiceHealthAgentProps {
   location?: string;
   onClose?: () => void;
 }
+
+// Hardcoded ElevenLabs Agent ID
+const ELEVENLABS_AGENT_ID = "agent_0201kdyddt5jf9grj2n01htwpk70";
 
 export const VoiceHealthAgent = ({
   pm25,
@@ -28,7 +31,6 @@ export const VoiceHealthAgent = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
-  const [agentId, setAgentId] = useState<string>("");
 
   const conversation = useConversation({
     onConnect: () => {
@@ -44,7 +46,6 @@ export const VoiceHealthAgent = ({
     },
     onMessage: (message) => {
       console.log("Message:", message);
-      // Handle transcript from message payload
       const msg = message as unknown as Record<string, unknown>;
       if (msg.type === "transcript" && typeof msg.text === "string") {
         setTranscript(prev => [...prev, msg.text as string]);
@@ -61,16 +62,24 @@ export const VoiceHealthAgent = ({
     },
   });
 
-  const startConversation = useCallback(async () => {
-    if (!agentId.trim()) {
-      toast({
-        title: "กรุณาใส่ Agent ID",
-        description: "ต้องการ ElevenLabs Agent ID เพื่อเริ่มการสนทนา",
-        variant: "destructive",
-      });
-      return;
+  const buildContextMessage = useCallback(() => {
+    const parts = ["สวัสดีครับ ยินดีให้คำปรึกษาด้านสุขภาพ"];
+    
+    if (pm25 !== undefined) {
+      const riskLevel = pm25 > 75 ? "สูง" : pm25 > 35 ? "ปานกลาง" : "ต่ำ";
+      parts.push(`ค่า PM2.5 ตอนนี้อยู่ที่ ${pm25} ไมโครกรัมต่อลูกบาศก์เมตร ความเสี่ยง${riskLevel}`);
     }
+    
+    if (location) {
+      parts.push(`ที่${location}`);
+    }
+    
+    parts.push("มีอะไรให้ช่วยไหมครับ");
+    
+    return parts.join(" ");
+  }, [pm25, location]);
 
+  const startConversation = useCallback(async () => {
     setIsConnecting(true);
     try {
       // Request microphone permission
@@ -79,7 +88,7 @@ export const VoiceHealthAgent = ({
       // Get token from edge function
       const { data, error } = await supabase.functions.invoke(
         "elevenlabs-conversation-token",
-        { body: { agentId: agentId.trim() } }
+        { body: { agentId: ELEVENLABS_AGENT_ID } }
       );
 
       if (error || !data?.token) {
@@ -110,24 +119,7 @@ export const VoiceHealthAgent = ({
     } finally {
       setIsConnecting(false);
     }
-  }, [conversation, agentId, toast]);
-
-  const buildContextMessage = () => {
-    const parts = ["สวัสดีครับ ยินดีให้คำปรึกษาด้านสุขภาพ"];
-    
-    if (pm25 !== undefined) {
-      const riskLevel = pm25 > 75 ? "สูง" : pm25 > 35 ? "ปานกลาง" : "ต่ำ";
-      parts.push(`ค่า PM2.5 ตอนนี้อยู่ที่ ${pm25} ไมโครกรัมต่อลูกบาศก์เมตร ความเสี่ยง${riskLevel}`);
-    }
-    
-    if (location) {
-      parts.push(`ที่${location}`);
-    }
-    
-    parts.push("มีอะไรให้ช่วยไหมครับ");
-    
-    return parts.join(" ");
-  };
+  }, [conversation, buildContextMessage, toast]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -135,7 +127,6 @@ export const VoiceHealthAgent = ({
 
   const toggleMute = useCallback(() => {
     setIsMuted(!isMuted);
-    // Note: ElevenLabs SDK handles muting internally
   }, [isMuted]);
 
   const getAqiColor = () => {
@@ -194,25 +185,6 @@ export const VoiceHealthAgent = ({
           )}
         </div>
 
-        {/* Agent ID Input */}
-        {conversation.status === "disconnected" && (
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">
-              ElevenLabs Agent ID
-            </label>
-            <input
-              type="text"
-              value={agentId}
-              onChange={(e) => setAgentId(e.target.value)}
-              placeholder="ใส่ Agent ID ของคุณ"
-              className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              สร้าง Agent ได้ที่ <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noopener noreferrer" className="text-primary underline">ElevenLabs Console</a>
-            </p>
-          </div>
-        )}
-
         {/* Status Indicator */}
         <div className="flex items-center justify-center gap-2 py-3">
           <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
@@ -245,7 +217,7 @@ export const VoiceHealthAgent = ({
           {conversation.status === "disconnected" ? (
             <Button
               onClick={startConversation}
-              disabled={isConnecting || !agentId.trim()}
+              disabled={isConnecting}
               size="lg"
               className="gap-2"
             >
