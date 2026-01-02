@@ -85,32 +85,48 @@ export default function ProfileSetup() {
   };
 
   const handleSubmit = async () => {
-    const exerciseFreqValue = exerciseFrequency === '0' ? 0 : exerciseFrequency === '1-2' ? 1.5 : exerciseFrequency === '3-4' ? 3.5 : 5;
+    // Convert to integer for database compatibility
+    const exerciseFreqValue = exerciseFrequency === '0' ? 0 : exerciseFrequency === '1-2' ? 2 : exerciseFrequency === '3-4' ? 4 : 5;
     const outdoorTimeValue = outdoorTimeRange === '<1' ? 30 : outdoorTimeRange === '1-3' ? 120 : outdoorTimeRange === '3-5' ? 240 : 360;
 
-    const success = await saveProfile({
-      name: name || 'ผู้ใช้',
-      age,
-      gender,
-      height,
-      weight,
-      occupation,
-      workEnvironment: occupation === 'outdoor' ? 'outdoor' : occupation === 'indoor' ? 'indoor' : 'mixed',
-      location,
-      chronicConditions: chronicConditions.filter(c => c !== 'none'),
-      smokingStatus,
-      alcoholConsumption,
-      exerciseFrequency: exerciseFreqValue,
-      dustSensitivity,
-      hasAirPurifier,
-      maskUsage,
-      outdoorTimeDaily: outdoorTimeValue,
-      physicalActivity,
-    });
+    try {
+      const success = await saveProfile({
+        name: name || 'ผู้ใช้',
+        age,
+        gender,
+        height,
+        weight,
+        occupation,
+        workEnvironment: occupation === 'outdoor' ? 'outdoor' : occupation === 'indoor' ? 'indoor' : 'mixed',
+        location,
+        chronicConditions: chronicConditions.filter(c => c !== 'none'),
+        smokingStatus,
+        alcoholConsumption,
+        exerciseFrequency: exerciseFreqValue,
+        dustSensitivity,
+        hasAirPurifier,
+        maskUsage,
+        outdoorTimeDaily: outdoorTimeValue,
+        physicalActivity,
+      });
 
-    if (success) {
-      setSavedName(name || 'ผู้ใช้');
-      setShowWelcome(true);
+      if (success) {
+        setSavedName(name || 'ผู้ใช้');
+        setShowWelcome(true);
+      } else {
+        toast({
+          title: 'เกิดข้อผิดพลาด',
+          description: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Profile save error:', error);
+      toast({
+        title: 'เกิดข้อผิดพลาด',
+        description: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+        variant: 'destructive',
+      });
     }
   };
 
