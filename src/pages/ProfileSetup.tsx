@@ -88,7 +88,7 @@ export default function ProfileSetup() {
     const outdoorTimeValue = outdoorTimeRange === '<1' ? 30 : outdoorTimeRange === '1-3' ? 120 : outdoorTimeRange === '3-5' ? 240 : 360;
 
     const success = await saveProfile({
-      name,
+      name: name || 'ผู้ใช้',
       age,
       gender,
       height,
@@ -112,7 +112,8 @@ export default function ProfileSetup() {
         title: '🎉 ยินดีต้อนรับ!',
         description: 'โปรไฟล์สุขภาพของคุณถูกบันทึกเรียบร้อยแล้ว',
       });
-      navigate('/');
+      // Force reload to ensure ProtectedRoute picks up the new profile
+      window.location.href = '/';
     }
   };
 
