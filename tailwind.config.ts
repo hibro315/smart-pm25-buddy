@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['Nunito', 'IBM Plex Sans Thai', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Quicksand', 'Prompt', 'IBM Plex Sans Thai', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -70,6 +71,8 @@ export default {
           mint: "hsl(var(--glow-mint))",
           pale: "hsl(var(--glow-pale))",
           warm: "hsl(var(--glow-warm))",
+          violet: "hsl(var(--glow-violet))",
+          aurora: "hsl(var(--glow-aurora))",
         },
       },
       backgroundImage: {
@@ -77,13 +80,17 @@ export default {
         "gradient-orb": "var(--gradient-orb)",
         "gradient-glass": "var(--gradient-glass)",
         "gradient-sanctuary": "var(--gradient-sanctuary)",
+        "gradient-holographic": "var(--gradient-holographic)",
+        "gradient-neural": "var(--gradient-neural)",
       },
       boxShadow: {
         soft: "var(--shadow-soft)",
+        medium: "var(--shadow-medium)",
         "glow-cyan": "var(--shadow-glow-cyan)",
         "glow-mint": "var(--shadow-glow-mint)",
         "glow-warm": "var(--shadow-glow-warm)",
         "glow-alert": "var(--shadow-glow-alert)",
+        "glow-violet": "var(--shadow-glow-violet)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -128,6 +135,14 @@ export default {
           "0%": { transform: "scale(1)", opacity: "0.5" },
           "100%": { transform: "scale(2)", opacity: "0" },
         },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "holographic": {
+          "0%, 100%": { backgroundPosition: "0% 50%", filter: "hue-rotate(0deg)" },
+          "50%": { backgroundPosition: "100% 50%", filter: "hue-rotate(15deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -138,6 +153,8 @@ export default {
         "glow-pulse": "glow-pulse 3s ease-in-out infinite",
         "morph": "morph 20s ease-in-out infinite",
         "ripple": "ripple 2s ease-out infinite",
+        "shimmer": "shimmer 1.5s infinite",
+        "holographic": "holographic 15s ease-in-out infinite",
       },
     },
   },
