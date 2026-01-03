@@ -14,6 +14,7 @@ interface LocationPermissionCardProps {
   error: string | null;
   onRequestPermission: () => void;
   onRefresh: () => void;
+  onFlyToLocation?: () => void;
 }
 
 export const LocationPermissionCard = ({
@@ -22,7 +23,8 @@ export const LocationPermissionCard = ({
   loading,
   error,
   onRequestPermission,
-  onRefresh
+  onRefresh,
+  onFlyToLocation
 }: LocationPermissionCardProps) => {
   const { t } = useLanguage();
 
@@ -138,16 +140,29 @@ export const LocationPermissionCard = ({
             {/* Actions */}
             <div className="flex gap-2 mt-4">
               {permissionStatus === 'granted' ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onRefresh}
-                  disabled={loading}
-                  className="text-xs"
-                >
-                  <Navigation className="h-3.5 w-3.5 mr-1.5" />
-                  {t('location.refresh') || 'รีเฟรชตำแหน่ง'}
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onRefresh}
+                    disabled={loading}
+                    className="text-xs"
+                  >
+                    <Navigation className="h-3.5 w-3.5 mr-1.5" />
+                    {t('location.refresh') || 'รีเฟรชตำแหน่ง'}
+                  </Button>
+                  {onFlyToLocation && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={onFlyToLocation}
+                      className="text-xs bg-primary hover:bg-primary/90"
+                    >
+                      <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                      {t('map.flyToLocation') || 'ไปที่ตำแหน่งของฉัน'}
+                    </Button>
+                  )}
+                </>
               ) : permissionStatus === 'denied' ? (
                 <Button
                   size="sm"

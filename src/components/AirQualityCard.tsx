@@ -25,12 +25,23 @@ interface AirQualityCardProps {
 }
 
 export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, temperature, humidity, pressure, wind, nearbyStations, source }: AirQualityCardProps) => {
+  // AQI Level based on standard AQI scale (0-500)
   const getAQILevel = (value: number) => {
-    if (value <= 25) return { level: "ดี", color: "bg-aqi-good", textColor: "text-aqi-good" };
-    if (value <= 37) return { level: "ปานกลาง", color: "bg-aqi-moderate", textColor: "text-aqi-moderate" };
-    if (value <= 50) return { level: "เริ่มมีผลกระทบต่อสุขภาพ", color: "bg-aqi-unhealthy-sensitive", textColor: "text-aqi-unhealthy-sensitive" };
-    if (value <= 90) return { level: "มีผลกระทบต่อสุขภาพ", color: "bg-aqi-unhealthy", textColor: "text-aqi-unhealthy" };
-    return { level: "อันตราย", color: "bg-aqi-hazardous", textColor: "text-aqi-hazardous" };
+    if (value <= 50) return { level: "ดี", levelEn: "Good", color: "bg-aqi-good", textColor: "text-aqi-good" };
+    if (value <= 100) return { level: "ปานกลาง", levelEn: "Moderate", color: "bg-aqi-moderate", textColor: "text-aqi-moderate" };
+    if (value <= 150) return { level: "ไม่ดีต่อกลุ่มเสี่ยง", levelEn: "Unhealthy for Sensitive", color: "bg-aqi-unhealthy-sensitive", textColor: "text-aqi-unhealthy-sensitive" };
+    if (value <= 200) return { level: "ไม่ดีต่อสุขภาพ", levelEn: "Unhealthy", color: "bg-aqi-unhealthy", textColor: "text-aqi-unhealthy" };
+    if (value <= 300) return { level: "ไม่ดีต่อสุขภาพมาก", levelEn: "Very Unhealthy", color: "bg-aqi-very-unhealthy", textColor: "text-aqi-very-unhealthy" };
+    return { level: "อันตราย", levelEn: "Hazardous", color: "bg-aqi-hazardous", textColor: "text-aqi-hazardous" };
+  };
+
+  // PM2.5 Level based on Thai AQI standards (µg/m³)
+  const getPM25Level = (value: number) => {
+    if (value <= 15) return { level: "ดีมาก", color: "text-emerald-500" };
+    if (value <= 25) return { level: "ดี", color: "text-green-500" };
+    if (value <= 37.5) return { level: "ปานกลาง", color: "text-yellow-500" };
+    if (value <= 75) return { level: "เริ่มมีผลกระทบ", color: "text-orange-500" };
+    return { level: "มีผลกระทบต่อสุขภาพ", color: "text-red-500" };
   };
 
   const formatThaiDateTime = (isoString?: string) => {
@@ -44,15 +55,17 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
     
     const day = date.getDate();
     const month = thaiMonths[date.getMonth()];
-    const year = date.getFullYear() + 543; // Convert to Buddhist Era
+    const year = date.getFullYear() + 543;
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     
     return `${day} ${month} ${year} เวลา ${hours}:${minutes}`;
   };
 
-  const aqiLevel = getAQILevel(pm25);
-  const isUnsafe = pm25 > 37;
+  const displayAQI = aqi || Math.round(pm25 * 2.5); // Estimate if not provided
+  const aqiLevel = getAQILevel(displayAQI);
+  const pm25Level = getPM25Level(pm25);
+  const isUnsafe = displayAQI > 100;
 
   return (
     <Card className="relative overflow-hidden shadow-elevated transition-smooth hover:shadow-alert">
@@ -75,24 +88,37 @@ export const AirQualityCard = ({ pm25, pm10, no2, o3, aqi, location, timestamp, 
           )}
         </div>
 
-        <div className="space-y-3">
+        {/* AQI Section - Primary */}
+        <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+          <p className="text-xs text-muted-foreground mb-1">ดัชนีคุณภาพอากาศ (AQI)</p>
           <div className="flex items-baseline gap-2">
-            <span className={`text-5xl font-bold ${aqiLevel.textColor}`}>
-              {pm25}
+            <span className={`text-4xl font-bold ${aqiLevel.textColor}`}>
+              {displayAQI}
             </span>
-            <span className="text-xl text-muted-foreground">µg/m³</span>
+            <Badge className={`${aqiLevel.color} text-white border-0`}>
+              {aqiLevel.level}
+            </Badge>
           </div>
-
-          <Badge className={`${aqiLevel.color} text-white border-0`}>
-            {aqiLevel.level}
-          </Badge>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-3">
+            <div 
+              className={`h-full ${aqiLevel.color} transition-all duration-500`}
+              style={{ width: `${Math.min((displayAQI / 300) * 100, 100)}%` }}
+            />
+          </div>
         </div>
 
-        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-          <div 
-            className={`h-full ${aqiLevel.color} transition-all duration-500`}
-            style={{ width: `${Math.min((pm25 / 150) * 100, 100)}%` }}
-          />
+        {/* PM2.5 Section - Secondary */}
+        <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
+          <p className="text-xs text-muted-foreground mb-1">ฝุ่นละอองขนาดเล็ก PM2.5</p>
+          <div className="flex items-baseline gap-2">
+            <span className={`text-2xl font-bold ${pm25Level.color}`}>
+              {pm25}
+            </span>
+            <span className="text-sm text-muted-foreground">µg/m³</span>
+            <span className={`text-xs ${pm25Level.color} ml-2`}>
+              ({pm25Level.level})
+            </span>
+          </div>
         </div>
 
         {/* Weather conditions */}

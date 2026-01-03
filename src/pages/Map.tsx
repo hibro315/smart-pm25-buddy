@@ -7,7 +7,8 @@
  * @version 3.0.0 - Neo-Futuristic Health Navigation
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
 import { useAirQualityWithFallback } from '@/hooks/useAirQualityWithFallback';
 import { useRoutePM25 } from '@/hooks/useRoutePM25';
 import { useHealthProfile } from '@/hooks/useHealthProfile';
@@ -41,6 +42,8 @@ const Map = () => {
     refreshLocation
   } = useLocationPermission();
   
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  
   // Use detected location or default to Bangkok
   const currentPosition = location 
     ? { lat: location.lat, lng: location.lng }
@@ -54,6 +57,23 @@ const Map = () => {
   } | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [travelMode, setTravelMode] = useState<TravelMode>('car');
+
+  // Handle map ready callback
+  const handleMapReady = useCallback((map: mapboxgl.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  // Fly to location when it changes
+  const handleFlyToLocation = useCallback(() => {
+    if (mapRef.current && location) {
+      mapRef.current.flyTo({
+        center: [location.lng, location.lat],
+        zoom: 15,
+        duration: 1500,
+        essential: true,
+      });
+    }
+  }, [location]);
 
   // Determine disease profile
   const getDiseaseProfile = useCallback((): DiseaseProfile => {
@@ -90,30 +110,48 @@ const Map = () => {
   }, [analyzeRoutes, currentPosition, hasRespiratoryCondition, profile]);
 
   const currentPM25 = aqiData?.pm25 || 0;
+  const currentAQI = aqiData?.aqi || 0;
 
-  // Get AQI status styling
-  const getAQIStatus = () => {
-    if (currentPM25 <= 25) return { 
+  // Get AQI status styling based on AQI value (not PM2.5)
+  const getAQIStatus = (aqi: number) => {
+    if (aqi <= 50) return { 
       color: 'text-success', 
       bg: 'from-success/20 to-success/5',
       glow: 'shadow-glow-mint',
-      label: t('map.aqi.good')
+      label: t('map.aqi.good'),
+      labelTh: 'ดี'
     };
-    if (currentPM25 <= 50) return { 
+    if (aqi <= 100) return { 
       color: 'text-warning', 
       bg: 'from-warning/20 to-warning/5',
       glow: 'shadow-glow-warm',
-      label: t('map.aqi.moderate')
+      label: t('map.aqi.moderate'),
+      labelTh: 'ปานกลาง'
     };
-    return { 
+    if (aqi <= 150) return { 
+      color: 'text-orange-500', 
+      bg: 'from-orange-500/20 to-orange-500/5',
+      glow: 'shadow-glow-warm',
+      label: t('map.aqi.unhealthySensitive'),
+      labelTh: 'ไม่ดีต่อกลุ่มเสี่ยง'
+    };
+    if (aqi <= 200) return { 
       color: 'text-destructive', 
       bg: 'from-destructive/20 to-destructive/5',
       glow: 'shadow-glow-alert',
-      label: t('map.aqi.unhealthy')
+      label: t('map.aqi.unhealthy'),
+      labelTh: 'ไม่ดีต่อสุขภาพ'
+    };
+    return { 
+      color: 'text-purple-600', 
+      bg: 'from-purple-600/20 to-purple-600/5',
+      glow: 'shadow-glow-alert',
+      label: t('map.aqi.hazardous'),
+      labelTh: 'อันตราย'
     };
   };
 
-  const aqiStatus = getAQIStatus();
+  const aqiStatus = getAQIStatus(currentAQI);
 
   return (
     <div className="min-h-screen bg-neural pb-24 relative overflow-hidden">
@@ -168,9 +206,10 @@ const Map = () => {
           error={locationError}
           onRequestPermission={requestLocationPermission}
           onRefresh={refreshLocation}
+          onFlyToLocation={handleFlyToLocation}
         />
 
-        {/* Current AQI Status Card */}
+        {/* Current AQI Status Card - Separated AQI and PM2.5 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -199,19 +238,27 @@ const Map = () => {
                 >
                   <Wind className={cn("h-6 w-6", aqiStatus.color)} />
                 </motion.div>
-                <div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Sparkles className="h-3 w-3 text-primary" />
-                    {t('map.pm25.now')}
-                  </p>
-                  <div className="flex items-baseline gap-2">
-                    <p className={cn("text-3xl font-bold font-mono", aqiStatus.color)}>
-                      {currentPM25}
+                <div className="space-y-2">
+                  {/* AQI Value - Primary */}
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      {t('map.aqi.label')}
                     </p>
+                    <div className="flex items-baseline gap-2">
+                      <p className={cn("text-3xl font-bold font-mono", aqiStatus.color)}>
+                        {currentAQI}
+                      </p>
+                      <Badge variant="secondary" className={cn("text-[10px]", aqiStatus.color)}>
+                        {aqiStatus.label}
+                      </Badge>
+                    </div>
+                  </div>
+                  {/* PM2.5 Value - Secondary */}
+                  <div className="flex items-baseline gap-2 bg-muted/30 px-2 py-1 rounded-lg">
+                    <span className="text-xs text-muted-foreground">PM2.5:</span>
+                    <span className="font-semibold text-foreground">{currentPM25}</span>
                     <span className="text-xs text-muted-foreground">µg/m³</span>
-                    <Badge variant="secondary" className={cn("text-[10px] ml-2", aqiStatus.color)}>
-                      {aqiStatus.label}
-                    </Badge>
                   </div>
                 </div>
               </div>
@@ -287,6 +334,7 @@ const Map = () => {
             currentLng={currentPosition.lng}
             routes={routes}
             selectedRouteIndex={selectedRouteIndex}
+            onMapReady={handleMapReady}
             className="h-[380px] shadow-medium rounded-2xl overflow-hidden"
           />
         </motion.div>
