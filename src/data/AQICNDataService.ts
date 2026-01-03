@@ -535,6 +535,134 @@ export async function fetchRouteAQIData(
   return results;
 }
 
+/**
+ * Fetches AQI data from multiple nearby stations for interpolation
+ * Uses the AQICN search endpoint to find stations in a radius
+ * 
+ * @param centerLat - Center latitude
+ * @param centerLng - Center longitude
+ * @param radiusKm - Search radius in kilometers (default: 25km)
+ * @param apiToken - AQICN API token
+ */
+export async function fetchNearbyStations(
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number = 25,
+  apiToken: string
+): Promise<NormalizedAQIData[]> {
+  const cacheKey = `stations_${centerLat.toFixed(3)}_${centerLng.toFixed(3)}_${radiusKm}`;
+  
+  // Check cache first
+  const cached = getCachedData<NormalizedAQIData[]>(cacheKey);
+  if (cached) {
+    console.log('[AQICNDataService] Using cached nearby stations');
+    return cached;
+  }
+
+  try {
+    // Calculate bounding box
+    const latDelta = radiusKm / 111; // 1 degree lat ≈ 111 km
+    const lngDelta = radiusKm / (111 * Math.cos(centerLat * Math.PI / 180));
+    
+    const bounds = {
+      lat1: centerLat - latDelta,
+      lat2: centerLat + latDelta,
+      lng1: centerLng - lngDelta,
+      lng2: centerLng + lngDelta,
+    };
+
+    const url = `https://api.waqi.info/v2/map/bounds?latlng=${bounds.lat1},${bounds.lng1},${bounds.lat2},${bounds.lng2}&networks=all&token=${apiToken}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const json = await response.json();
+    
+    if (json.status !== 'ok' || !Array.isArray(json.data)) {
+      console.warn('[AQICNDataService] Invalid response for nearby stations');
+      return [];
+    }
+
+    // Convert raw stations to normalized format
+    const stations: NormalizedAQIData[] = json.data
+      .filter((s: any) => s.aqi && s.aqi !== '-' && !isNaN(Number(s.aqi)))
+      .map((s: any) => ({
+        aqi: Number(s.aqi),
+        pm25: estimatePM25FromAQI(Number(s.aqi)),
+        pm10: null,
+        o3: null,
+        no2: null,
+        so2: null,
+        co: null,
+        latitude: s.lat,
+        longitude: s.lon,
+        stationName: s.station?.name || 'Unknown',
+        stationId: s.uid || 0,
+        timestamp: new Date(),
+        fetchedAt: new Date(),
+        isInterpolated: false,
+        dominantPollutant: 'pm25',
+      }))
+      .filter((s: NormalizedAQIData) => s.latitude && s.longitude);
+
+    // Cache results for 10 minutes
+    if (stations.length > 0) {
+      cacheData(cacheKey, stations, 10 * 60 * 1000);
+    }
+
+    console.log(`[AQICNDataService] Found ${stations.length} nearby stations`);
+    return stations;
+  } catch (error) {
+    console.error('[AQICNDataService] Fetch nearby stations error:', error);
+    return [];
+  }
+}
+
+
+
+
+/**
+ * Generates interpolated grid points for heatmap visualization
+ * 
+ * @param stations - Array of station data
+ * @param centerLat - Center latitude
+ * @param centerLng - Center longitude
+ * @param gridSize - Number of grid points per axis (default: 10)
+ * @param radiusKm - Grid radius in km (default: 15)
+ */
+export function generateInterpolatedGrid(
+  stations: NormalizedAQIData[],
+  centerLat: number,
+  centerLng: number,
+  gridSize: number = 10,
+  radiusKm: number = 15
+): InterpolatedPoint[] {
+  if (stations.length === 0) return [];
+
+  const points: InterpolatedPoint[] = [];
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos(centerLat * Math.PI / 180));
+  
+  const stepLat = (2 * latDelta) / gridSize;
+  const stepLng = (2 * lngDelta) / gridSize;
+
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j <= gridSize; j++) {
+      const lat = centerLat - latDelta + (i * stepLat);
+      const lng = centerLng - lngDelta + (j * stepLng);
+      
+      const interpolated = interpolateAQI(lat, lng, stations);
+      if (interpolated) {
+        points.push(interpolated);
+      }
+    }
+  }
+
+  return points;
+}
+
 export default {
   validateAQIData,
   normalizeAQIData,
@@ -545,4 +673,6 @@ export default {
   getCacheAge,
   fetchAQIData,
   fetchRouteAQIData,
+  fetchNearbyStations,
+  generateInterpolatedGrid,
 };
