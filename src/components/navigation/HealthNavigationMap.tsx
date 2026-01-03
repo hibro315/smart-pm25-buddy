@@ -46,6 +46,11 @@ export const HealthNavigationMap = ({
   const [showFogOverlay, setShowFogOverlay] = useState(true);
   const [liveLocation, setLiveLocation] = useState({ lat: currentLat, lng: currentLng });
 
+  // Sync with prop changes
+  useEffect(() => {
+    setLiveLocation({ lat: currentLat, lng: currentLng });
+  }, [currentLat, currentLng]);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -186,14 +191,14 @@ export const HealthNavigationMap = ({
         }}
       />
 
-      {/* Fog AQI Overlay */}
+      {/* Fog AQI Overlay - Always show when enabled */}
       {mapLoaded && (
         <FogAQIOverlay
           map={map.current}
           centerLat={liveLocation.lat}
           centerLng={liveLocation.lng}
-          enabled={showFogOverlay && routes.length === 0}
-          opacity={0.5}
+          enabled={showFogOverlay}
+          opacity={0.6}
         />
       )}
 
