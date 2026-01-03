@@ -19,6 +19,7 @@ import { RouteRecommendationPanel } from '@/components/navigation/RouteRecommend
 import { TravelModeRecommender } from '@/components/navigation/TravelModeRecommender';
 import { SmartLocationSearch } from '@/components/SmartLocationSearch';
 import { LocationPermissionCard } from '@/components/LocationPermissionCard';
+import { AQIHistoryDashboard } from '@/components/AQIHistoryDashboard';
 import { UserMenu } from '@/components/UserMenu';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -367,12 +368,21 @@ const Map = () => {
                 value={travelMode}
                 onChange={setTravelMode}
                 currentPM25={currentPM25}
-                routeDuration={routes[selectedRouteIndex]?.duration}
+                routeDuration={routes[selectedRouteIndex]?.duration ?? 0}
                 hasRespiratoryCondition={hasRespiratoryCondition}
               />
             </Card>
           </motion.div>
         )}
+
+        {/* AQI History Dashboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.5 }}
+        >
+          <AQIHistoryDashboard daysBack={7} />
+        </motion.div>
       </div>
     </div>
   );

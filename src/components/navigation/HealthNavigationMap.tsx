@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RouteWithPM25 } from '@/hooks/useRoutePM25';
 import { FogAQIOverlay } from './FogAQIOverlay';
 import { GlowingRouteLayer } from './GlowingRouteLayer';
+import { InterpolatedAQIHeatmap } from '@/components/InterpolatedAQIHeatmap';
 import { getPosition } from '@/utils/geolocation';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -44,6 +45,7 @@ export const HealthNavigationMap = ({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [showFogOverlay, setShowFogOverlay] = useState(true);
+  const [useInterpolatedHeatmap, setUseInterpolatedHeatmap] = useState(true);
   const [liveLocation, setLiveLocation] = useState({ lat: currentLat, lng: currentLng });
 
   // Sync with prop changes
@@ -191,13 +193,25 @@ export const HealthNavigationMap = ({
         }}
       />
 
-      {/* Fog AQI Overlay - Always show when enabled */}
-      {mapLoaded && (
+      {/* AQI Heatmap - Interpolated multi-station or Fog overlay */}
+      {mapLoaded && showFogOverlay && useInterpolatedHeatmap && (
+        <InterpolatedAQIHeatmap
+          map={map.current}
+          centerLat={liveLocation.lat}
+          centerLng={liveLocation.lng}
+          enabled={showFogOverlay && useInterpolatedHeatmap}
+          opacity={0.65}
+          showStations={true}
+        />
+      )}
+      
+      {/* Fallback Fog AQI Overlay */}
+      {mapLoaded && showFogOverlay && !useInterpolatedHeatmap && (
         <FogAQIOverlay
           map={map.current}
           centerLat={liveLocation.lat}
           centerLng={liveLocation.lng}
-          enabled={showFogOverlay}
+          enabled={showFogOverlay && !useInterpolatedHeatmap}
           opacity={0.6}
         />
       )}
