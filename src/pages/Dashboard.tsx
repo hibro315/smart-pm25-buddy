@@ -1,7 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EnhancedPHRIPanel } from "@/components/EnhancedPHRIPanel";
 import { DashboardActionButtons } from "@/components/DashboardActionButtons";
-import { DecisionBlock } from "@/components/DecisionBlock";
+import { AIDecisionBlock } from "@/components/AIDecisionBlock";
 import { PHRITrendChart } from "@/components/PHRITrendChart";
 import { PHRIComparison } from "@/components/PHRIComparison";
 import { HealthLogsHistory } from "@/components/HealthLogsHistory";
@@ -14,7 +14,6 @@ import { UserMenu } from "@/components/UserMenu";
 import { OnlineStatusBadge } from "@/components/OnlineStatusBadge";
 import { DashboardLoadingSkeleton } from "@/components/DashboardLoadingSkeleton";
 import { AdaptiveDashboard } from "@/components/AdaptiveDashboard";
-import type { DecisionBlockData } from "@/components/DecisionBlock";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
 import { useEnhancedPHRI } from "@/hooks/useEnhancedPHRI";
 import { useAirQualityWithFallback } from "@/hooks/useAirQualityWithFallback";
@@ -32,7 +31,6 @@ const Dashboard = () => {
   const { data, loading: airQualityLoading } = useAirQualityWithFallback();
   const { todaySymptoms, getSymptomScore, loading: symptomsLoading } = useDailySymptoms();
   const [phriResult, setPhriResult] = useState<any>(undefined);
-  const [decisionData, setDecisionData] = useState<DecisionBlockData | null>(null);
   const [hasSavedToday, setHasSavedToday] = useState(false);
 
   // Memoize symptom score calculation
@@ -83,62 +81,6 @@ const Dashboard = () => {
 
       const result = calculateEnhancedPHRI(input);
       setPhriResult(result);
-
-      // Calculate decision data for DecisionBlock
-      const hasRespiratoryCondition = (profile.chronicConditions || []).some(c => 
-        c.toLowerCase().includes('asthma') || c.toLowerCase().includes('copd')
-      );
-      
-      // Determine risk level from PM2.5
-      const pm25 = data.pm25;
-      let riskLevel: 'safe' | 'caution' | 'warning' | 'danger' = 'safe';
-      let riskScore = 0;
-      
-      if (hasRespiratoryCondition) {
-        if (pm25 >= 100) { riskLevel = 'danger'; riskScore = 90; }
-        else if (pm25 >= 50) { riskLevel = 'warning'; riskScore = 70; }
-        else if (pm25 >= 25) { riskLevel = 'caution'; riskScore = 45; }
-        else { riskLevel = 'safe'; riskScore = 20; }
-      } else {
-        if (pm25 >= 150) { riskLevel = 'danger'; riskScore = 85; }
-        else if (pm25 >= 75) { riskLevel = 'warning'; riskScore = 60; }
-        else if (pm25 >= 35) { riskLevel = 'caution'; riskScore = 35; }
-        else { riskLevel = 'safe'; riskScore = 15; }
-      }
-      
-      const decisions: Record<typeof riskLevel, string> = {
-        safe: t('dashboard.decision.safe'),
-        caution: t('dashboard.decision.caution'),
-        warning: t('dashboard.decision.warning'),
-        danger: t('dashboard.decision.danger'),
-      };
-      
-      setDecisionData({
-        riskLevel,
-        riskScore,
-        primaryDecision: decisions[riskLevel],
-        supportingFacts: [
-          `PM2.5: ${pm25} µg/m³`,
-          `AQI: ${data.aqi}`,
-          hasRespiratoryCondition ? t('dashboard.respiratory.condition') : '',
-        ].filter(Boolean),
-        options: [
-          {
-            id: 'mask',
-            action: t('dashboard.action.mask'),
-            riskReduction: 80,
-            feasibility: 'easy' as const,
-            timeToImplement: t('dashboard.action.immediate'),
-          },
-          {
-            id: 'indoor',
-            action: t('dashboard.action.indoor'),
-            riskReduction: 60,
-            feasibility: 'easy' as const,
-            timeToImplement: t('dashboard.action.immediate'),
-          },
-        ],
-      });
 
       // Auto-save PHRI and AQI data to health_logs once per day
       if (!hasSavedToday && data.pm25 > 0) {
@@ -230,14 +172,22 @@ const Dashboard = () => {
           />
         </motion.div>
 
-        {/* Real-time Health Decision Block */}
-        {decisionData && (
+        {/* AI-Powered Health Decision Block */}
+        {data && data.pm25 > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <DecisionBlock data={decisionData} compact />
+            <AIDecisionBlock 
+              pm25={data.pm25}
+              aqi={data.aqi}
+              temperature={data.temperature}
+              humidity={data.humidity}
+              location={data.location}
+              compact={false}
+              autoFetch={true}
+            />
           </motion.div>
         )}
 
