@@ -250,6 +250,44 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Footer
     'profile.footer': 'ข้อมูลของคุณจะถูกเก็บอย่างปลอดภัยและใช้เพื่อให้คำแนะนำด้านสุขภาพเฉพาะบุคคล',
+    
+    // Exposure History
+    'exposure.title': 'ประวัติการสัมผัสฝุ่น PM2.5',
+    'exposure.sync': 'ซิงค์ข้อมูล',
+    'exposure.total.logs': 'บันทึกทั้งหมด',
+    'exposure.avg.pm25': 'PM2.5 เฉลี่ย',
+    'exposure.avg.phri': 'PHRI เฉลี่ย',
+    'exposure.pending.sync': 'รอซิงค์',
+    'exposure.hourly': 'รายชั่วโมง',
+    'exposure.daily': 'รายวัน',
+    'exposure.weekly': 'รายสัปดาห์',
+    'exposure.locations.visited': 'สถานที่ที่เคยไป (14 วันล่าสุด)',
+    'exposure.week.starting': 'สัปดาห์เริ่มต้น',
+    'exposure.high.risk.days': 'วันเสี่ยงสูง',
+    'exposure.no.data': 'ยังไม่มีข้อมูลการสัมผัสฝุ่น',
+    'exposure.no.data.desc': 'เริ่มบันทึกข้อมูลด้วยการคำนวณ PHRI',
+    
+    // Charts
+    'chart.avg.pm25': 'PM2.5 เฉลี่ย',
+    'chart.avg.phri': 'PHRI เฉลี่ย',
+    'chart.symptom.score': 'คะแนนอาการ',
+    'chart.days.count': 'จำนวนวัน',
+    'chart.scatter.plot': 'กราฟแบบกระจาย (Scatter Plot)',
+    'chart.max.aqi': 'AQI สูงสุด',
+    'chart.avg.aqi': 'AQI เฉลี่ย',
+    'chart.max.pm25': 'PM2.5 สูงสุด',
+    'chart.log.count': 'จำนวนบันทึก',
+    'chart.entries': 'รายการ',
+    
+    // AI Decision Block
+    'ai.analyzing': 'AI กำลังวิเคราะห์...',
+    'ai.analyzing.desc': 'พิจารณาข้อมูลสุขภาพและสภาพแวดล้อม',
+    'ai.recommendation': 'คำแนะนำ',
+    'ai.options': 'ตัวเลือก',
+    'ai.factors.considered': 'ปัจจัยที่พิจารณา',
+    'ai.confidence': 'ความมั่นใจ',
+    'ai.get.advice': 'กดเพื่อขอคำแนะนำจาก AI',
+    'ai.analyze': 'วิเคราะห์',
   },
   en: {
     // Common
@@ -490,6 +528,44 @@ const translations: Record<Language, Record<string, string>> = {
     
     // Footer
     'profile.footer': 'Your data is securely stored and used for personalized health recommendations',
+    
+    // Exposure History
+    'exposure.title': 'PM2.5 Exposure History',
+    'exposure.sync': 'Sync Data',
+    'exposure.total.logs': 'Total Logs',
+    'exposure.avg.pm25': 'Avg PM2.5',
+    'exposure.avg.phri': 'Avg PHRI',
+    'exposure.pending.sync': 'Pending Sync',
+    'exposure.hourly': 'Hourly',
+    'exposure.daily': 'Daily',
+    'exposure.weekly': 'Weekly',
+    'exposure.locations.visited': 'Locations Visited (Last 14 Days)',
+    'exposure.week.starting': 'Week Starting',
+    'exposure.high.risk.days': 'High Risk Days',
+    'exposure.no.data': 'No exposure data yet',
+    'exposure.no.data.desc': 'Start recording by calculating PHRI',
+    
+    // Charts
+    'chart.avg.pm25': 'Avg PM2.5',
+    'chart.avg.phri': 'Avg PHRI',
+    'chart.symptom.score': 'Symptom Score',
+    'chart.days.count': 'Number of Days',
+    'chart.scatter.plot': 'Scatter Plot',
+    'chart.max.aqi': 'Max AQI',
+    'chart.avg.aqi': 'Avg AQI',
+    'chart.max.pm25': 'Max PM2.5',
+    'chart.log.count': 'Log Count',
+    'chart.entries': 'entries',
+    
+    // AI Decision Block
+    'ai.analyzing': 'AI is analyzing...',
+    'ai.analyzing.desc': 'Considering health and environmental data',
+    'ai.recommendation': 'Recommendation',
+    'ai.options': 'Options',
+    'ai.factors.considered': 'Factors Considered',
+    'ai.confidence': 'Confidence',
+    'ai.get.advice': 'Click for AI advice',
+    'ai.analyze': 'Analyze',
   },
   zh: {
     // Common

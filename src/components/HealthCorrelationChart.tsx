@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, TrendingUp } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface CorrelationData {
   date: string;
@@ -13,9 +14,31 @@ interface CorrelationData {
 }
 
 export const HealthCorrelationChart = () => {
+  const { t, language } = useLanguage();
   const [data, setData] = useState<CorrelationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [daysBack, setDaysBack] = useState<number>(14);
+
+  // Get locale string based on language
+  const getLocale = () => {
+    switch (language) {
+      case 'en': return 'en-US';
+      case 'zh': return 'zh-CN';
+      default: return 'th-TH';
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString(getLocale(), { month: 'short', day: 'numeric' });
+  };
+
+  const formatFullDate = (date: string) => {
+    return new Date(date).toLocaleDateString(getLocale(), { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     loadCorrelationData();
@@ -194,11 +217,11 @@ export const HealthCorrelationChart = () => {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{correlationType}</div>
-                <div className="text-xs text-muted-foreground">ความสัมพันธ์</div>
+                <div className="text-xs text-muted-foreground">{language === 'th' ? 'ความสัมพันธ์' : 'Correlation'}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{data.length}</div>
-                <div className="text-xs text-muted-foreground">จำนวนวัน</div>
+                <div className="text-xs text-muted-foreground">{t('chart.days.count')}</div>
               </div>
             </div>
 
@@ -209,7 +232,7 @@ export const HealthCorrelationChart = () => {
                 <XAxis 
                   dataKey="date" 
                   tick={{ fontSize: 12 }}
-                  tickFormatter={(date) => new Date(date).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                  tickFormatter={formatDate}
                 />
                 <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
@@ -219,11 +242,7 @@ export const HealthCorrelationChart = () => {
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px'
                   }}
-                  labelFormatter={(date) => new Date(date).toLocaleDateString('th-TH', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                  labelFormatter={formatFullDate}
                 />
                 <Legend />
                 <Line 
@@ -232,7 +251,7 @@ export const HealthCorrelationChart = () => {
                   dataKey="symptomScore" 
                   stroke="hsl(var(--destructive))" 
                   strokeWidth={2}
-                  name="คะแนนอาการ"
+                  name={t('chart.symptom.score')}
                   dot={{ fill: 'hsl(var(--destructive))' }}
                 />
                 <Line 

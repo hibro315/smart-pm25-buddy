@@ -3,12 +3,23 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useExposureHistory } from '@/hooks/useExposureHistory';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Calendar, TrendingUp, MapPin, RefreshCw, Loader2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export const ExposureHistoryDashboard = () => {
+  const { t, language } = useLanguage();
   const { exposureLogs, summary, loading, loadExposureLogs, syncToBackend } = useExposureHistory();
   const [syncing, setSyncing] = useState(false);
+
+  // Get locale string based on language
+  const getLocale = () => {
+    switch (language) {
+      case 'en': return 'en-US';
+      case 'zh': return 'zh-CN';
+      default: return 'th-TH';
+    }
+  };
 
   useEffect(() => {
     loadExposureLogs();
@@ -19,6 +30,22 @@ export const ExposureHistoryDashboard = () => {
     await syncToBackend();
     await loadExposureLogs();
     setSyncing(false);
+  };
+
+  const formatTime = (value: string | number) => {
+    return new Date(value).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (value: string | number) => {
+    return new Date(value).toLocaleDateString(getLocale(), { month: 'short', day: 'numeric' });
+  };
+
+  const formatFullDate = (value: string | number) => {
+    return new Date(value).toLocaleDateString(getLocale());
+  };
+
+  const formatDateTime = (value: string | number) => {
+    return new Date(value).toLocaleString(getLocale());
   };
 
   if (loading) {
@@ -35,7 +62,7 @@ export const ExposureHistoryDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold">ประวัติการสัมผัสฝุ่น PM2.5</h3>
+            <h3 className="text-lg font-semibold">{t('exposure.title')}</h3>
           </div>
           <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
             {syncing ? (
@@ -43,17 +70,17 @@ export const ExposureHistoryDashboard = () => {
             ) : (
               <RefreshCw className="w-4 h-4 mr-2" />
             )}
-            ซิงค์ข้อมูล
+            {t('exposure.sync')}
           </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs text-muted-foreground">บันทึกทั้งหมด</p>
+            <p className="text-xs text-muted-foreground">{t('exposure.total.logs')}</p>
             <p className="text-2xl font-bold">{exposureLogs.length}</p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs text-muted-foreground">PM2.5 เฉลี่ย</p>
+            <p className="text-xs text-muted-foreground">{t('exposure.avg.pm25')}</p>
             <p className="text-2xl font-bold">
               {exposureLogs.length > 0
                 ? Math.round(exposureLogs.reduce((sum, log) => sum + log.pm25, 0) / exposureLogs.length)
@@ -61,7 +88,7 @@ export const ExposureHistoryDashboard = () => {
             </p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs text-muted-foreground">PHRI เฉลี่ย</p>
+            <p className="text-xs text-muted-foreground">{t('exposure.avg.phri')}</p>
             <p className="text-2xl font-bold">
               {exposureLogs.length > 0
                 ? (exposureLogs.reduce((sum, log) => sum + log.phri, 0) / exposureLogs.length).toFixed(1)
@@ -69,7 +96,7 @@ export const ExposureHistoryDashboard = () => {
             </p>
           </div>
           <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs text-muted-foreground">รอซิงค์</p>
+            <p className="text-xs text-muted-foreground">{t('exposure.pending.sync')}</p>
             <p className="text-2xl font-bold text-warning">
               {exposureLogs.filter(log => !log.synced).length}
             </p>
@@ -81,15 +108,15 @@ export const ExposureHistoryDashboard = () => {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="hourly">
                 <Calendar className="w-4 h-4 mr-1" />
-                รายชั่วโมง
+                {t('exposure.hourly')}
               </TabsTrigger>
               <TabsTrigger value="daily">
                 <Calendar className="w-4 h-4 mr-1" />
-                รายวัน
+                {t('exposure.daily')}
               </TabsTrigger>
               <TabsTrigger value="weekly">
                 <Calendar className="w-4 h-4 mr-1" />
-                รายสัปดาห์
+                {t('exposure.weekly')}
               </TabsTrigger>
             </TabsList>
 
@@ -100,11 +127,11 @@ export const ExposureHistoryDashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="timestamp"
-                      tickFormatter={(value) => new Date(value).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                      tickFormatter={formatTime}
                     />
                     <YAxis />
                     <Tooltip
-                      labelFormatter={(value) => new Date(value).toLocaleString('th-TH')}
+                      labelFormatter={formatDateTime}
                     />
                     <Legend />
                     <Line type="monotone" dataKey="pm25" stroke="hsl(var(--destructive))" name="PM2.5" />
@@ -121,21 +148,21 @@ export const ExposureHistoryDashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                      tickFormatter={formatDate}
                     />
                     <YAxis />
                     <Tooltip
-                      labelFormatter={(value) => new Date(value).toLocaleDateString('th-TH')}
+                      labelFormatter={formatFullDate}
                     />
                     <Legend />
-                    <Bar dataKey="avgPM25" fill="hsl(var(--destructive))" name="PM2.5 เฉลี่ย" />
-                    <Bar dataKey="avgPHRI" fill="hsl(var(--primary))" name="PHRI เฉลี่ย" />
+                    <Bar dataKey="avgPM25" fill="hsl(var(--destructive))" name={t('chart.avg.pm25')} />
+                    <Bar dataKey="avgPHRI" fill="hsl(var(--primary))" name={t('chart.avg.phri')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium">สถานที่ที่เคยไป (14 วันล่าสุด)</p>
+                <p className="text-sm font-medium">{t('exposure.locations.visited')}</p>
                 <div className="flex flex-wrap gap-2">
                   {summary.daily
                     .slice(0, 14)
@@ -158,15 +185,15 @@ export const ExposureHistoryDashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="week"
-                      tickFormatter={(value) => `สัปดาห์ ${new Date(value).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}`}
+                      tickFormatter={formatDate}
                     />
                     <YAxis />
                     <Tooltip
-                      labelFormatter={(value) => `สัปดาห์เริ่มต้น: ${new Date(value).toLocaleDateString('th-TH')}`}
+                      labelFormatter={(value) => `${t('exposure.week.starting')}: ${formatFullDate(value)}`}
                     />
                     <Legend />
-                    <Bar dataKey="avgPM25" fill="hsl(var(--destructive))" name="PM2.5 เฉลี่ย" />
-                    <Bar dataKey="highRiskDays" fill="hsl(var(--warning))" name="วันเสี่ยงสูง" />
+                    <Bar dataKey="avgPM25" fill="hsl(var(--destructive))" name={t('chart.avg.pm25')} />
+                    <Bar dataKey="highRiskDays" fill="hsl(var(--warning))" name={t('exposure.high.risk.days')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -175,12 +202,12 @@ export const ExposureHistoryDashboard = () => {
                 {summary.weekly.slice(0, 3).map((week, i) => (
                   <div key={i} className="p-3 bg-muted rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">
-                      {new Date(week.week).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}
+                      {formatDate(week.week)}
                     </p>
                     <p className="text-sm font-semibold">PM2.5: {week.avgPM25}</p>
                     <p className="text-sm font-semibold">PHRI: {week.avgPHRI}</p>
                     <p className="text-xs text-destructive mt-1">
-                      {week.highRiskDays} วันเสี่ยงสูง
+                      {week.highRiskDays} {t('exposure.high.risk.days')}
                     </p>
                   </div>
                 ))}
@@ -191,8 +218,8 @@ export const ExposureHistoryDashboard = () => {
 
         {exposureLogs.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            <p>ยังไม่มีข้อมูลการสัมผัสฝุ่น</p>
-            <p className="text-sm mt-1">เริ่มบันทึกข้อมูลด้วยการคำนวณ PHRI</p>
+            <p>{t('exposure.no.data')}</p>
+            <p className="text-sm mt-1">{t('exposure.no.data.desc')}</p>
           </div>
         )}
       </Card>
