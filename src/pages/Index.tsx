@@ -217,16 +217,16 @@ const Index = () => {
   }
 
   const pm25Value = data?.pm25 || 0;
-  const location = data?.location || 'กำลังโหลด...';
+  const location = data?.location || 'Loading...';
   const currentTime = data?.timestamp 
-    ? new Date(data.timestamp).toLocaleString('th-TH', {
+    ? new Date(data.timestamp).toLocaleString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
       })
-    : new Date().toLocaleString('th-TH', {
+    : new Date().toLocaleString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -245,7 +245,7 @@ const Index = () => {
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
-            ออกจากระบบ
+            Logout
           </Button>
         </div>
       </div>

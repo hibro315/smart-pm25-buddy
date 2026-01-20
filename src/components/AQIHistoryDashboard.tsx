@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Card } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine
 } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
-import { th } from 'date-fns/locale';
+import { th, enUS, zhCN } from 'date-fns/locale';
 import { 
   Calendar, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Activity 
 } from 'lucide-react';
@@ -56,13 +56,19 @@ const getAQIColor = (aqi: number): string => {
   return AQI_COLORS.hazardous;
 };
 
-const getAQILevel = (aqi: number): { label: string; labelTh: string } => {
-  if (aqi <= 50) return { label: 'Good', labelTh: 'ดี' };
-  if (aqi <= 100) return { label: 'Moderate', labelTh: 'ปานกลาง' };
-  if (aqi <= 150) return { label: 'Unhealthy for Sensitive', labelTh: 'ไม่ดีต่อกลุ่มเสี่ยง' };
-  if (aqi <= 200) return { label: 'Unhealthy', labelTh: 'ไม่ดีต่อสุขภาพ' };
-  if (aqi <= 300) return { label: 'Very Unhealthy', labelTh: 'ไม่ดีต่อสุขภาพมาก' };
-  return { label: 'Hazardous', labelTh: 'อันตราย' };
+const getAQILevel = (aqi: number, lang: string = 'th'): { label: string; labelTh: string } => {
+  const labels = {
+    th: { good: 'ดี', moderate: 'ปานกลาง', sensitive: 'ไม่ดีต่อกลุ่มเสี่ยง', unhealthy: 'ไม่ดีต่อสุขภาพ', veryUnhealthy: 'ไม่ดีต่อสุขภาพมาก', hazardous: 'อันตราย' },
+    en: { good: 'Good', moderate: 'Moderate', sensitive: 'Unhealthy for Sensitive', unhealthy: 'Unhealthy', veryUnhealthy: 'Very Unhealthy', hazardous: 'Hazardous' },
+    zh: { good: '优', moderate: '中等', sensitive: '敏感人群不健康', unhealthy: '不健康', veryUnhealthy: '非常不健康', hazardous: '危险' }
+  };
+  const l = labels[lang as keyof typeof labels] || labels.en;
+  if (aqi <= 50) return { label: 'Good', labelTh: l.good };
+  if (aqi <= 100) return { label: 'Moderate', labelTh: l.moderate };
+  if (aqi <= 150) return { label: 'Unhealthy for Sensitive', labelTh: l.sensitive };
+  if (aqi <= 200) return { label: 'Unhealthy', labelTh: l.unhealthy };
+  if (aqi <= 300) return { label: 'Very Unhealthy', labelTh: l.veryUnhealthy };
+  return { label: 'Hazardous', labelTh: l.hazardous };
 };
 
 export const AQIHistoryDashboard = ({ 
@@ -225,7 +231,7 @@ export const AQIHistoryDashboard = ({
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted)/0.3)" />
             <XAxis 
               dataKey="date" 
-              tickFormatter={(date) => format(parseISO(date), 'd', { locale: th })}
+              tickFormatter={(date) => format(parseISO(date), 'd', { locale: language === 'th' ? th : language === 'zh' ? zhCN : enUS })}
               tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
               axisLine={{ stroke: 'hsl(var(--muted)/0.3)' }}
             />
@@ -237,30 +243,31 @@ export const AQIHistoryDashboard = ({
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload as DailyAQIData;
-                  const level = getAQILevel(d.maxAqi);
+                  const level = getAQILevel(d.maxAqi, language);
+                  const dateLocale = language === 'th' ? th : language === 'zh' ? zhCN : enUS;
                   return (
                     <div className="bg-popover/95 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
                       <p className="font-medium text-sm">
-                        {format(parseISO(label), 'EEEE d MMM', { locale: th })}
+                        {format(parseISO(label), 'EEEE d MMM', { locale: dateLocale })}
                       </p>
                       <div className="mt-2 space-y-1 text-xs">
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">AQI สูงสุด:</span>
+                          <span className="text-muted-foreground">{t('chart.max.aqi')}:</span>
                           <span className="font-bold" style={{ color: getAQIColor(d.maxAqi) }}>
                             {d.maxAqi} ({level.labelTh})
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">AQI เฉลี่ย:</span>
+                          <span className="text-muted-foreground">{t('chart.avg.aqi')}:</span>
                           <span>{d.avgAqi}</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">PM2.5 สูงสุด:</span>
+                          <span className="text-muted-foreground">{t('chart.max.pm25')}:</span>
                           <span>{d.maxPm25} µg/m³</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">จำนวนบันทึก:</span>
-                          <span>{d.logCount} รายการ</span>
+                          <span className="text-muted-foreground">{t('chart.log.count')}:</span>
+                          <span>{d.logCount} {t('chart.entries')}</span>
                         </div>
                       </div>
                     </div>
