@@ -7,14 +7,16 @@ import { Slider } from "@/components/ui/slider";
 import { 
   Send, Mic, MicOff, Volume2, VolumeX, 
   Sparkles, Settings2, AlertTriangle,
-  Play, Square
+  Play, Square, Heart
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthProfile } from "@/hooks/useHealthProfile";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { AnimatedAvatar } from "@/components/AnimatedAvatar";
 import { thaiTTSService, AvatarState, TTSState } from "@/services/ThaiTTSService";
+import { evaluateAQI, evaluatePM25, getDiseaseCategory } from "@/utils/aqiThresholds";
 import {
   Popover,
   PopoverContent,
@@ -44,6 +46,7 @@ export const HealthChatbotEnhanced = ({
   location,
 }: HealthChatbotEnhancedProps) => {
   const { profile } = useHealthProfile();
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +54,12 @@ export const HealthChatbotEnhanced = ({
   const [sessionId] = useState(() => crypto.randomUUID());
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Get disease-specific AQI evaluation
+  const diseaseCategory = getDiseaseCategory(profile?.chronicConditions || []);
+  const aqiEvaluation = aqi !== undefined ? evaluateAQI(aqi, diseaseCategory, language as 'en' | 'th') : null;
+  const pm25Evaluation = pm25 !== undefined ? evaluatePM25(pm25, diseaseCategory) : null;
+  const isSensitiveGroup = diseaseCategory !== 'general';
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
 
@@ -306,17 +315,7 @@ export const HealthChatbotEnhanced = ({
     }
   };
 
-  // Get AQI risk level
-  const getAqiRisk = () => {
-    if (!aqi) return { level: 'unknown', color: 'bg-muted' };
-    if (aqi <= 50) return { level: 'ดี', color: 'bg-green-500' };
-    if (aqi <= 100) return { level: 'ปานกลาง', color: 'bg-yellow-500' };
-    if (aqi <= 150) return { level: 'ไม่ดีต่อกลุ่มเสี่ยง', color: 'bg-orange-500' };
-    if (aqi <= 200) return { level: 'ไม่ดี', color: 'bg-red-500' };
-    return { level: 'อันตราย', color: 'bg-purple-500' };
-  };
-
-  const aqiRisk = getAqiRisk();
+  // Using disease-specific AQI evaluation from utility
 
   const suggestedPrompts = [
     "วันนี้ฝุ่นสูงไหม? ผมควรระวังอะไรบ้าง",
@@ -346,14 +345,19 @@ export const HealthChatbotEnhanced = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* AQI Badge */}
-            <Badge 
-              variant="outline" 
-              className={cn("text-xs gap-1", aqi && aqi > 100 && "border-orange-500 text-orange-600")}
-            >
-              {aqi && aqi > 100 && <AlertTriangle className="h-3 w-3" />}
-              AQI: {aqi || '-'}
-            </Badge>
+            {/* AQI Badge - Disease-specific */}
+            {aqiEvaluation && (
+              <Badge 
+                variant="outline" 
+                className={cn("text-xs gap-1", aqiEvaluation.color)}
+              >
+                {isSensitiveGroup && <Heart className="h-3 w-3" />}
+                {aqiEvaluation.level !== 'good' && aqiEvaluation.level !== 'moderate' && (
+                  <AlertTriangle className="h-3 w-3" />
+                )}
+                AQI: {aqi || '-'}
+              </Badge>
+            )}
 
             {/* TTS Controls */}
             <Button
@@ -443,16 +447,27 @@ export const HealthChatbotEnhanced = ({
             
             {/* Environment Info */}
             <div className="flex flex-wrap gap-2 justify-center mb-4">
-              <Badge variant="secondary" className="text-xs">
-                PM2.5: {pm25 || '-'} µg/m³
-              </Badge>
-              <Badge variant="secondary" className={cn("text-xs text-white", aqiRisk.color)}>
-                AQI: {aqi || '-'} ({aqiRisk.level})
-              </Badge>
+              {pm25Evaluation && (
+                <Badge variant="secondary" className={cn("text-xs", pm25Evaluation.color)}>
+                  PM2.5: {pm25?.toFixed(1) || '-'} µg/m³
+                </Badge>
+              )}
+              {aqiEvaluation && (
+                <Badge variant="secondary" className={cn("text-xs text-white", aqiEvaluation.bgColor)}>
+                  {isSensitiveGroup && <Heart className="w-3 h-3 mr-1" />}
+                  AQI: {aqi || '-'} ({language === 'en' ? aqiEvaluation.label : aqiEvaluation.labelTh})
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-xs">
                 🌡️ {temperature || '-'}°C
               </Badge>
             </div>
+            
+            {isSensitiveGroup && (
+              <p className="text-xs text-orange-600 mb-3">
+                ⚠️ {language === 'en' ? 'Stricter thresholds applied for your health conditions' : 'ใช้เกณฑ์เข้มงวดสำหรับโรคประจำตัวของคุณ'}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2 justify-center">
               {suggestedPrompts.map((prompt, i) => (
