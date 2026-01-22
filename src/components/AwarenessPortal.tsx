@@ -152,8 +152,9 @@ export const AwarenessPortal = ({
             <div className="text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">PM2.5</p>
               <p className="text-lg font-display font-semibold text-foreground">
-                {pm25.toFixed(0)}
+                {pm25.toFixed(1)}
               </p>
+              <p className="text-[10px] text-muted-foreground">µg/m³</p>
             </div>
             {aqi !== undefined && (
               <>
@@ -163,6 +164,7 @@ export const AwarenessPortal = ({
                   <p className="text-lg font-display font-semibold text-foreground">
                     {aqi}
                   </p>
+                  <p className="text-[10px] text-muted-foreground">index</p>
                 </div>
               </>
             )}
@@ -170,10 +172,11 @@ export const AwarenessPortal = ({
               <>
                 <div className="w-px h-8 bg-border" />
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">ความเสี่ยง</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">PHRI</p>
                   <p className="text-lg font-display font-semibold text-foreground">
                     {phri.toFixed(1)}
                   </p>
+                  <p className="text-[10px] text-muted-foreground">score</p>
                 </div>
               </>
             )}

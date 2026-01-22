@@ -4,8 +4,11 @@ import { AnimatedPHRICounter } from './AnimatedPHRICounter';
 import { RiskGauge } from './RiskGauge';
 import { PHRIBreakdownChart } from './PHRIBreakdownChart';
 import { usePHRIColor } from '@/hooks/usePHRIAnimation';
-import { AlertTriangle, Shield, AlertCircle, AlertOctagon, Activity, Wind } from 'lucide-react';
+import { useHealthProfile } from '@/hooks/useHealthProfile';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { AlertTriangle, Shield, AlertCircle, AlertOctagon, Activity, Wind, Heart, Stethoscope } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { evaluateAQI, evaluatePM25, getDiseaseCategory, getDiseaseSpecificLabel } from '@/utils/aqiThresholds';
 import type { EnhancedPHRIResult } from '@/hooks/useEnhancedPHRI';
 
 interface EnhancedPHRIPanelProps {
@@ -18,7 +21,14 @@ interface EnhancedPHRIPanelProps {
 export const EnhancedPHRIPanel = ({ result, pm25, aqi, className }: EnhancedPHRIPanelProps) => {
   const phriScore = result?.phri || 0;
   const { color, category, categoryLabel } = usePHRIColor(phriScore);
-
+  const { profile } = useHealthProfile();
+  const { language } = useLanguage();
+  
+  // Get disease-specific AQI evaluation
+  const diseaseCategory = getDiseaseCategory(profile?.chronicConditions || []);
+  const aqiEvaluation = aqi !== undefined ? evaluateAQI(aqi, diseaseCategory, language as 'en' | 'th') : null;
+  const pm25Evaluation = pm25 !== undefined ? evaluatePM25(pm25, diseaseCategory) : null;
+  const isSensitiveGroup = diseaseCategory !== 'general';
   const getIcon = () => {
     switch (result?.alertLevel) {
       case 'emergency':
@@ -124,22 +134,50 @@ export const EnhancedPHRIPanel = ({ result, pm25, aqi, className }: EnhancedPHRI
 
             {/* Quick Stats */}
             <div className="flex flex-col gap-3">
-              {pm25 !== undefined && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <Wind className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">PM2.5</p>
-                    <p className="font-semibold">{pm25.toFixed(1)} µg/m³</p>
+              {pm25 !== undefined && pm25Evaluation && (
+                <div className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                  pm25Evaluation.bgColor.replace('bg-', 'border-').replace('500', '200'),
+                  "bg-muted/50"
+                )}>
+                  <Wind className={cn("w-5 h-5", pm25Evaluation.color)} />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">PM2.5 (µg/m³)</p>
+                    <p className={cn("font-semibold text-lg", pm25Evaluation.color)}>{pm25.toFixed(1)}</p>
                   </div>
+                  <Badge variant="outline" className={cn("text-xs", pm25Evaluation.color)}>
+                    {language === 'en' ? pm25Evaluation.label : pm25Evaluation.labelTh}
+                  </Badge>
                 </div>
               )}
-              {aqi !== undefined && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <Activity className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">AQI</p>
-                    <p className="font-semibold">{aqi}</p>
+              {aqi !== undefined && aqiEvaluation && (
+                <div className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                  aqiEvaluation.bgColor.replace('bg-', 'border-').replace('500', '200'),
+                  "bg-muted/50"
+                )}>
+                  {isSensitiveGroup ? (
+                    <Heart className={cn("w-5 h-5", aqiEvaluation.color)} />
+                  ) : (
+                    <Activity className={cn("w-5 h-5", aqiEvaluation.color)} />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">
+                      {isSensitiveGroup 
+                        ? getDiseaseSpecificLabel(diseaseCategory, language as 'en' | 'th')
+                        : 'AQI'}
+                    </p>
+                    <p className={cn("font-semibold text-lg", aqiEvaluation.color)}>{aqi}</p>
                   </div>
+                  <Badge variant="outline" className={cn("text-xs", aqiEvaluation.color)}>
+                    {language === 'en' ? aqiEvaluation.label : aqiEvaluation.labelTh}
+                  </Badge>
+                </div>
+              )}
+              {isSensitiveGroup && (
+                <div className="flex items-center gap-2 px-2 py-1 text-xs text-orange-600 bg-orange-50 rounded-lg border border-orange-200">
+                  <Stethoscope className="w-3 h-3" />
+                  <span>{language === 'en' ? 'Stricter thresholds applied' : 'ใช้เกณฑ์เข้มงวดสำหรับกลุ่มเสี่ยง'}</span>
                 </div>
               )}
             </div>

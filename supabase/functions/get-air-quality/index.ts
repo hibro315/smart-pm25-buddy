@@ -146,13 +146,50 @@ serve(async (req) => {
     const cityName = data.city?.name || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
     const location = cityName;
     
-    // Extract air quality data from AQICN
+    // Extract the main AQI value (composite index)
     const aqi = Math.round(data.aqi || 0);
     
     // AQICN provides individual pollutant measurements in iaqi object
+    // NOTE: iaqi values are AQI sub-indices, NOT actual concentrations!
+    // We need to convert PM2.5 AQI sub-index back to µg/m³ concentration
     const iaqi = data.iaqi || {};
-    const pm25 = Math.round(iaqi.pm25?.v || 0);
-    const pm10 = Math.round(iaqi.pm10?.v || 0);
+    
+    // Get PM2.5 AQI sub-index
+    const pm25AqiSubIndex = iaqi.pm25?.v || 0;
+    
+    // Convert PM2.5 AQI sub-index to actual µg/m³ concentration using US EPA breakpoints
+    // Reference: https://www.airnow.gov/aqi/aqi-basics/
+    const convertPm25AqiToUgm3 = (aqiValue: number): number => {
+      if (aqiValue <= 0) return 0;
+      if (aqiValue <= 50) return (aqiValue / 50) * 12.0;
+      if (aqiValue <= 100) return 12.1 + ((aqiValue - 51) / 49) * (35.4 - 12.1);
+      if (aqiValue <= 150) return 35.5 + ((aqiValue - 101) / 49) * (55.4 - 35.5);
+      if (aqiValue <= 200) return 55.5 + ((aqiValue - 151) / 49) * (150.4 - 55.5);
+      if (aqiValue <= 300) return 150.5 + ((aqiValue - 201) / 99) * (250.4 - 150.5);
+      if (aqiValue <= 400) return 250.5 + ((aqiValue - 301) / 99) * (350.4 - 250.5);
+      if (aqiValue <= 500) return 350.5 + ((aqiValue - 401) / 99) * (500.4 - 350.5);
+      return 500.5;
+    };
+    
+    // PM2.5 in µg/m³ (actual concentration)
+    const pm25 = Math.round(convertPm25AqiToUgm3(pm25AqiSubIndex) * 10) / 10;
+    
+    // Similarly convert PM10 AQI to µg/m³
+    const pm10AqiSubIndex = iaqi.pm10?.v || 0;
+    const convertPm10AqiToUgm3 = (aqiValue: number): number => {
+      if (aqiValue <= 0) return 0;
+      if (aqiValue <= 50) return (aqiValue / 50) * 54;
+      if (aqiValue <= 100) return 55 + ((aqiValue - 51) / 49) * (154 - 55);
+      if (aqiValue <= 150) return 155 + ((aqiValue - 101) / 49) * (254 - 155);
+      if (aqiValue <= 200) return 255 + ((aqiValue - 151) / 49) * (354 - 255);
+      if (aqiValue <= 300) return 355 + ((aqiValue - 201) / 99) * (424 - 355);
+      if (aqiValue <= 400) return 425 + ((aqiValue - 301) / 99) * (504 - 425);
+      if (aqiValue <= 500) return 505 + ((aqiValue - 401) / 99) * (604 - 505);
+      return 605;
+    };
+    const pm10 = Math.round(convertPm10AqiToUgm3(pm10AqiSubIndex));
+    
+    // Other pollutants (keep as AQI sub-indices for now, commonly used this way)
     const no2 = Math.round(iaqi.no2?.v || 0);
     const o3 = Math.round(iaqi.o3?.v || 0);
     const so2 = Math.round(iaqi.so2?.v || 0);
